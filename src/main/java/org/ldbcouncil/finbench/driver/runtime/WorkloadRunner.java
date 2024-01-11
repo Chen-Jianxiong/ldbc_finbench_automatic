@@ -137,6 +137,9 @@ public class WorkloadRunner {
 
                 AtomicBoolean expire = new AtomicBoolean(false);
                 Timer timer = new Timer();
+                while (!workloadRunnerThread.state().equals(WorkloadRunnerThreadState.RUNNING)) {
+                    Spinner.powerNap(RUNNER_POLLING_INTERVAL_AS_MILLI);
+                }
                 timer.schedule(new TimerTask() {
                     @Override
                     public void run() {

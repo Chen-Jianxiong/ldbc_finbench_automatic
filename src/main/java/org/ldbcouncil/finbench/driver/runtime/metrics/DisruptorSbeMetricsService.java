@@ -31,7 +31,7 @@ public class DisruptorSbeMetricsService implements MetricsService {
     public static final long DEFAULT_HIGHEST_EXPECTED_RUNTIME_DURATION_AS_NANO = TimeUnit.MINUTES.toNanos(90);
 
     private final AtomicLong initiatedEvents = new AtomicLong(0);
-    private final AtomicBoolean shutdown = new AtomicBoolean(false);
+    public final AtomicBoolean shutdown = new AtomicBoolean(false);
     private final TimeSource timeSource;
     private final RingBuffer<UnsafeBuffer> ringBuffer;
     private final Disruptor<UnsafeBuffer> disruptor;

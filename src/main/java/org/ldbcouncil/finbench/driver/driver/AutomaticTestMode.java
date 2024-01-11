@@ -137,7 +137,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
                 succeed = false;
             }
         }
-        // 如果找到最后的l没有成功，则更换成最后一次成功的那次
+        // 如果找到最后的l没有成功，则更换成最后成功的那一次
         if (!succeed) {
             ((ConsoleAndFileDriverConfiguration) controlService.configuration()).timeCompressionRatio = r;
             // 就不必再执行了，因为此时机器状态已经下滑
@@ -209,6 +209,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
             } catch (DbException e) {
                 throw new DriverException(format("Error reinitializing DB: %s", database.getClass().getName()), e);
             }
+
 //            try {
 //                loggingService.info("Shutting down database connector...");
 //                Instant dbShutdownStart = Instant.now();

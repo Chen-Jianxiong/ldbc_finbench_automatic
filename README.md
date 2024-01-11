@@ -15,7 +15,8 @@
 - ConsoleAndFileDriverConfiguration 第 166 行，将 timeCompressionRatio private常量修改为 public变量
 - WorkloadRunner
     - 第 71行左右，新增一个 getFuture(int milli)重载方法
-    - 第130行左右，新增一个startThread(int milli)重载方法
+    - 第132行左右，新增一个startThread(int milli)重载方法
+    - 第 34 行，修改运行器轮询间隔为 500 毫秒
 - ResultsLogValidator 第49、51行左右，添加map.get()为空的判断
 - PoolingOperationHandlerRunnerFactory 第 123 行左右，添加了 shutdownTest() 方法，关闭 innerOperationHandlerRunnerFactory 和 operationHandlerRunnerPool，并且不用等待
 - Db 第 75 行左右，添加了 reInitTest() 方法
