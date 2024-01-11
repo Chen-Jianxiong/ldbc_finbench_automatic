@@ -19,6 +19,8 @@ import org.ldbcouncil.finbench.driver.temporal.TimeSource;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -29,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.lang.String.format;
 
 public class WorkloadRunner {
-    static final long RUNNER_POLLING_INTERVAL_AS_MILLI = 100;
+    static final long RUNNER_POLLING_INTERVAL_AS_MILLI = 500;
     private static final CompletionTimeWriter DUMMY_COMPLETION_TIME_WRITER = new DummyCompletionTimeWriter();
 
     private final WorkloadRunnerFuture workloadRunnerFuture;
@@ -130,11 +132,21 @@ public class WorkloadRunner {
         private void startThread(int milli) {
             if (workloadRunnerThread.state().equals(WorkloadRunnerThreadState.NOT_STARTED)) {
                 workloadRunnerThread.start();
-                try {
-                    Thread.sleep(milli);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                // 不能直接 sleep(milli)，因为若在此期间就执行完了，就会sleep多余的时间
+                // Thread.sleep(milli);
+
+                AtomicBoolean expire = new AtomicBoolean(false);
+                Timer timer = new Timer();
+                timer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        expire.set(true);
+                    }
+                }, milli);
+                while (!expire.get() || workloadRunnerThread.state().equals(WorkloadRunnerThreadState.NOT_STARTED)) {
+                    Spinner.powerNap(RUNNER_POLLING_INTERVAL_AS_MILLI);
                 }
+                timer.cancel();
             }
             // 停止线程
             if (isCancelled || isDone) {

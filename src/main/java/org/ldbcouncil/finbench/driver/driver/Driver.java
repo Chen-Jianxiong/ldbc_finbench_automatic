@@ -51,7 +51,6 @@ public class Driver {
             System.exit(1);
         } catch (Exception e) {
             loggingService.info("Driver terminated unexpectedly\n" + ConcurrentErrorReporter.stackTraceToString(e));
-            System.exit(1);
         } finally {
             if (null != controlService) {
                 controlService.shutdown();

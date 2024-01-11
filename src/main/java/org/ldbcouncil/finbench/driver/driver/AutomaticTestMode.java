@@ -43,8 +43,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -101,22 +99,51 @@ public class AutomaticTestMode implements DriverMode<Object> {
 
     @Override
     public Object startExecutionAndAwaitCompletion() throws DriverException {
-        double l = 0.0001;
+        double l = 1E-9;
         double r = 1;
-        while (r - l >= 0.0001) {
+        // 记录最后成功的一次的吞吐量
+        double throughput = 0;
+        // 快速预估阶段
+        loggingService.info("-----------------------------------快速预估阶段-------------------------------------------");
+        while (r - l >= 1E-5) {
+            // 第一次先尝试使用配置指定的tcr运行
+            double tcr = controlService.configuration().timeCompressionRatio();
+            loggingService.info("新的一轮：时间压缩比：" + tcr);
+            if (validationTest(5 * 60 * 1000)) {
+                r = tcr;
+                throughput = AutomaticTestMode.throughput;
+            } else {
+                l = tcr;
+            }
+            tcr = l + (r - l) / 2;
+            ((ConsoleAndFileDriverConfiguration) controlService.configuration()).timeCompressionRatio = tcr;
+        }
+
+        // 精确调参阶段，以防止产时间运行时机器损耗而导致的性能下降
+        loggingService.info("-----------------------------------精确调参阶段-------------------------------------------");
+        l = throughput;
+        r = Math.min(l * 5, 1);
+        boolean succeed = false;
+        while (r - l >= 1E-5) {
             double tcr = l + (r - l) / 2;
             loggingService.info("新的一轮：时间压缩比：" + tcr);
             ((ConsoleAndFileDriverConfiguration) controlService.configuration()).timeCompressionRatio = tcr;
-            if (validationTest()) {
+            if (validationTest(-1)) {
                 r = tcr;
+                succeed = true;
+                throughput = AutomaticTestMode.throughput;
             } else {
-                l = tcr;    // 因为要精确小数位，就不要加一了
+                l = tcr;
+                succeed = false;
             }
         }
-        // 因为 r >= l，为了求稳，因此选择 r
-        loggingService.info("===================适合本机的time_compression_ratio：" + r + " ===================");
-        loggingService.info("完整跑一次测试");
-        return executionAndAwaitCompletion(-1);
+        // 如果找到最后的l没有成功，则更换成最后一次成功的那次
+        if (!succeed) {
+            ((ConsoleAndFileDriverConfiguration) controlService.configuration()).timeCompressionRatio = r;
+            // 就不必再执行了，因为此时机器状态已经下滑
+            // validationTest(-1);
+        }
+        return throughput;
     }
 
     /**
@@ -124,19 +151,19 @@ public class AutomaticTestMode implements DriverMode<Object> {
      *
      * @return 一个boolean值，代表此次测试是否校验通过（延迟数小于阈值）
      */
-    private boolean validationTest() throws DriverException {
-        List<ResultsLogValidationResult.ValidationError> errors = executionAndAwaitCompletion(10 * 1000);
+    private boolean validationTest(int milli) throws DriverException {
+        List<ResultsLogValidationResult.ValidationError> errors = executionAndAwaitCompletion(milli);
         if (errors.isEmpty()) {
-            loggingService.info("\n==================================此次测试校验通过=============================\n"
-                    + "=============================throughput: " + throughput + "=============================\n"
-                    + "==================================tcr: " + controlService.configuration().timeCompressionRatio()
-                    + "=============================");
+            loggingService.info("\n----------------------------------此次测试校验通过----------------------------\n"
+                    + "----------------------------throughput: " + throughput + "-----------------------------\n"
+                    + "----------------------------------tcr: " + controlService.configuration().timeCompressionRatio()
+                    + "-----------------------------");
             return true;
         } else {
-            loggingService.info("\n==================================此次测试校验失败=============================\n"
-                    + "=============================throughput: " + throughput + "=============================\n"
-                    + "==================================tcr: " + controlService.configuration().timeCompressionRatio()
-                    + "=============================");
+            loggingService.info("\n----------------------------------此次测试校验失败----------------------------\n"
+                    + "-----------------------------throughput: " + throughput + "-----------------------------\n"
+                    + "----------------------------------tcr: " + controlService.configuration().timeCompressionRatio()
+                    + "----------------------------");
             return false;
         }
     }
@@ -172,18 +199,26 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     + " --- Run Phase ---\n"
                     + " -----------------");
             doInit(false);
-            doExecute(false, -1);
-
+            error = doExecute(false, -1);
             try {
-                loggingService.info("Shutting down database connector...");
-                Instant dbShutdownStart = Instant.now();
-                database.close();
-                Duration shutdownDuration = Duration.between(dbShutdownStart, Instant.now());
-                loggingService.info("Database connector shutdown successfully in: " + shutdownDuration);
-            } catch (IOException e) {
-                throw new DriverException("Error shutting down database", e);
+                // TODO remove in future
+                // This is necessary to clear the runnable context pool
+                // As objects in the pool would otherwise hold references to services used during warmup
+                loggingService.info("reInit database...");
+                database.reInitTest();
+            } catch (DbException e) {
+                throw new DriverException(format("Error reinitializing DB: %s", database.getClass().getName()), e);
             }
-            loggingService.info("Workload completed successfully");
+//            try {
+//                loggingService.info("Shutting down database connector...");
+//                Instant dbShutdownStart = Instant.now();
+//                database.close();
+//                Duration shutdownDuration = Duration.between(dbShutdownStart, Instant.now());
+//                loggingService.info("Database connector shutdown successfully in: " + shutdownDuration);
+//            } catch (IOException e) {
+//                throw new DriverException("Error shutting down database", e);
+//            }
+//            loggingService.info("Workload completed successfully");
         }
         return error;
     }
@@ -209,9 +244,9 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     format("Error creating results log writer for: %s", resultsLog.getAbsolutePath()), e);
         }
 
-        //  ==================
-        //  ===  Workload  ===
-        //  ==================
+        //  ------------------
+        //  ---  Workload  ---
+        //  ------------------
         loggingService.info("Scanning workload streams to calculate their limits...");
 
         // 指定需要跳过的操作数，可通过skip配置指定
@@ -261,9 +296,9 @@ public class AutomaticTestMode implements DriverMode<Object> {
             throw new DriverException("Error while retrieving operation stream for workload", e);
         }
 
-        //  ================
-        //  =====  DB  =====
-        //  ================
+        //  ---------------=
+        //  ---==  DB  ---==
+        //  ---------------=
         if (null == database) {
             try {
                 database = ClassLoaderHelper.loadDb(controlService.configuration().dbClassName());
@@ -279,9 +314,9 @@ public class AutomaticTestMode implements DriverMode<Object> {
             loggingService.info(format("Loaded DB: %s", database.getClass().getName()));
         }
 
-        //  ========================
-        //  ===  Metrics Service  ==
-        //  ========================
+        //  ------------------------
+        //  ---  Metrics Service  ==
+        //  ------------------------
         try {
             // TODO create metrics service factory so different ones can be easily created
             // Disruptor是用于JVM中多个线程之间的高效内存消息队列
@@ -298,9 +333,9 @@ public class AutomaticTestMode implements DriverMode<Object> {
             throw new DriverException("Error creating metrics service", e);
         }
 
-        //  =================================
-        //  ===  Completion Time Service  ===
-        //  =================================
+        //  ---------------------------------
+        //  ---  Completion Time Service  ---
+        //  ---------------------------------
         CompletionTimeServiceAssistant completionTimeServiceAssistant = new CompletionTimeServiceAssistant();
         try {
             completionTimeService =
@@ -312,9 +347,9 @@ public class AutomaticTestMode implements DriverMode<Object> {
             throw new DriverException("Error instantiating Completion Time Service", e);
         }
 
-        //  ========================
-        //  ===  Workload Runner  ==
-        //  ========================
+        //  ------------------------
+        //  ---  Workload Runner  ==
+        //  ------------------------
         loggingService.info(format("Instantiating %s", WorkloadRunner.class.getSimpleName()));
         try {
             int operationHandlerExecutorsBoundedQueueSize = DefaultQueues.DEFAULT_BOUND_1000;
@@ -335,9 +370,9 @@ public class AutomaticTestMode implements DriverMode<Object> {
             throw new DriverException(format("Error instantiating %s", WorkloadRunner.class.getSimpleName()), e);
         }
 
-        //  ===========================================
-        //  ===  Initialize Completion Time Service  ==
-        //  ===========================================
+        //  ------------------------------------------=
+        //  ---  Initialize Completion Time Service  ==
+        //  ------------------------------------------=
         // TODO note, this MUST be done after creation of Workload Runner because Workload Runner creates the
         // TODO "writers" for completion time service (refactor this mess at some stage)
         try {
@@ -395,7 +430,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
                 // 正常执行，走EXECUTE_BENCHMARK的流程
                 errorReporter = workloadRunner.getFuture().get();
             } else {
-                // 启动workloadRunner线程，主线程睡眠5分钟
+                // 启动workloadRunner线程，主线程睡眠milli的时间
                 errorReporter = workloadRunner.getFuture(milli);
             }
             loggingService.info("Shutting down workload...");
