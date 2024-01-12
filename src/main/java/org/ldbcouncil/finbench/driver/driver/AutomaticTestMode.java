@@ -99,24 +99,27 @@ public class AutomaticTestMode implements DriverMode<Object> {
 
     @Override
     public Object startExecutionAndAwaitCompletion() throws DriverException {
-        double l = 1E-9;
-        double r = 1;
+        double l = controlService.configuration().tcrLeft();
+        double r = controlService.configuration().tcrRight();
         // 记录最后成功的一次的吞吐量
         double throughput = 0;
         // 快速预估阶段
         loggingService.info("-----------------------------------快速预估阶段-------------------------------------------");
-        while (r - l >= 1E-5) {
+        // 增加预热数量，防止数量过少达不到设定的时间
+        // 暂时不采用，若tcr小的时候比较吃亏，明明不需要那么多时间就能执行完，但还是要坚持到机器性能下降之后
+        // ((ConsoleAndFileDriverConfiguration) controlService.configuration()).setWarmupCount(Integer.MAX_VALUE);
+        while (r - l >= controlService.configuration().dichotomyErrorRange()) {
             // 第一次先尝试使用配置指定的tcr运行
             double tcr = controlService.configuration().timeCompressionRatio();
             loggingService.info("新的一轮：时间压缩比：" + tcr);
-            if (validationTest(5 * 60 * 1000)) {
+            if (validationTest(controlService.configuration().estimateTestTime())) {
                 r = tcr;
                 throughput = AutomaticTestMode.throughput;
             } else {
                 l = tcr;
             }
             tcr = l + (r - l) / 2;
-            ((ConsoleAndFileDriverConfiguration) controlService.configuration()).timeCompressionRatio = tcr;
+            controlService.configuration().setTimeCompressionRatio(tcr);
         }
 
         // 精确调参阶段，以防止产时间运行时机器损耗而导致的性能下降
@@ -124,11 +127,11 @@ public class AutomaticTestMode implements DriverMode<Object> {
         l = throughput;
         r = Math.min(l * 5, 1);
         boolean succeed = false;
-        while (r - l >= 1E-5) {
+        while (r - l >= controlService.configuration().dichotomyErrorRange()) {
             double tcr = l + (r - l) / 2;
             loggingService.info("新的一轮：时间压缩比：" + tcr);
-            ((ConsoleAndFileDriverConfiguration) controlService.configuration()).timeCompressionRatio = tcr;
-            if (validationTest(-1)) {
+            controlService.configuration().setTimeCompressionRatio(tcr);
+            if (validationTest(controlService.configuration().accurateTestTime())) {
                 r = tcr;
                 succeed = true;
                 throughput = AutomaticTestMode.throughput;
@@ -139,7 +142,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
         }
         // 如果找到最后的l没有成功，则更换成最后成功的那一次
         if (!succeed) {
-            ((ConsoleAndFileDriverConfiguration) controlService.configuration()).timeCompressionRatio = r;
+            ((ConsoleAndFileDriverConfiguration) controlService.configuration()).setTimeCompressionRatio(r);
             // 就不必再执行了，因为此时机器状态已经下滑
             // validationTest(-1);
         }
@@ -151,7 +154,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
      *
      * @return 一个boolean值，代表此次测试是否校验通过（延迟数小于阈值）
      */
-    private boolean validationTest(int milli) throws DriverException {
+    private boolean validationTest(long milli) throws DriverException {
         List<ResultsLogValidationResult.ValidationError> errors = executionAndAwaitCompletion(milli);
         if (errors.isEmpty()) {
             loggingService.info("\n----------------------------------此次测试校验通过----------------------------\n"
@@ -168,7 +171,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
         }
     }
 
-    public List<ResultsLogValidationResult.ValidationError> executionAndAwaitCompletion(int milli)
+    public List<ResultsLogValidationResult.ValidationError> executionAndAwaitCompletion(long milli)
             throws DriverException {
         List<ResultsLogValidationResult.ValidationError> error = null;
         if (controlService.configuration().warmupCount() > 0) {
@@ -423,7 +426,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
         }
     }
 
-    private List<ResultsLogValidationResult.ValidationError> doExecute(boolean warmup, int milli) throws DriverException {
+    private List<ResultsLogValidationResult.ValidationError> doExecute(boolean warmup, long milli) throws DriverException {
         // 关闭 workload、完成时间服务、指标服务
         try {
             ConcurrentErrorReporter errorReporter = null;

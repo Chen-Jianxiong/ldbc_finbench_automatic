@@ -70,7 +70,7 @@ public class WorkloadRunner {
         return workloadRunnerFuture;
     }
 
-    public ConcurrentErrorReporter getFuture(int milli) {
+    public ConcurrentErrorReporter getFuture(long milli) {
         workloadRunnerFuture.startThread(milli);
         return workloadRunnerFuture.errorReporter;
     }
@@ -129,7 +129,7 @@ public class WorkloadRunner {
             }
         }
 
-        private void startThread(int milli) {
+        private void startThread(long milli) {
             if (workloadRunnerThread.state().equals(WorkloadRunnerThreadState.NOT_STARTED)) {
                 workloadRunnerThread.start();
                 // 不能直接 sleep(milli)，因为若在此期间就执行完了，就会sleep多余的时间

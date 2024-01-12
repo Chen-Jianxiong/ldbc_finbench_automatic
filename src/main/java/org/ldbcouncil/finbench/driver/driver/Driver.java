@@ -29,7 +29,7 @@ public class Driver {
         LoggingService loggingService = loggingServiceFactory.loggingServiceFor(Driver.class.getSimpleName());
         loggingService.info("Driver Simple Name：" + Driver.class.getSimpleName());
 
-        //
+        // 读取配置，生成驱动配置类对象
         try {
             TimeSource systemTimeSource = new SystemTimeSource();
             ConsoleAndFileDriverConfiguration configuration = ConsoleAndFileDriverConfiguration.fromArgs(args);

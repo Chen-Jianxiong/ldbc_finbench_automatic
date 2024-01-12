@@ -102,6 +102,28 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     public static final String WARMUP_COUNT_ARG = "wu";
     public static final long WARMUP_COUNT_DEFAULT = 0;
     public static final String WARMUP_COUNT_DEFAULT_STRING = Long.toString(WARMUP_COUNT_DEFAULT);
+    public static final String ESTIMATE_TEST_TIME_ARG = "ett";
+    public static final long ESTIMATE_TEST_DEFAULT_TIME = 5 * 60 * 1000;
+    public static final String ESTIMATE_TEST_DEFAULT_TIME_STRING = Long.toString(ESTIMATE_TEST_DEFAULT_TIME);
+    public static final String ESTIMATE_TEST_TIME_DESCRIPTION = format("快速预估阶段每次测试的时长，(默认是: %s)", ESTIMATE_TEST_DEFAULT_TIME_STRING);
+    public static final String ACCURATE_TEST_TIME_ARG = "att";
+    public static final long ACCURATE_TEST_DEFAULT_TIME = 7200 * 1000;
+    public static final String ACCURATE_TEST_DEFAULT_TIME_STRING = Long.toString(ACCURATE_TEST_DEFAULT_TIME);
+    public static final String ACCURATE_TEST_TIME_DESCRIPTION = format("精准调参阶段每次测试的时长，(默认是: %s)", ACCURATE_TEST_DEFAULT_TIME_STRING);
+    public static final String DICHOTOMY_ERROR_RANGE_ARG = "der";
+    public static final double DEFAULT_DICHOTOMY_ERROR_RANGE = 1E-5;
+    public static final String DEFAULT_DICHOTOMY_ERROR_RANGE_STRING = Double.toString(DEFAULT_DICHOTOMY_ERROR_RANGE);
+    public static final String DICHOTOMY_ERROR_RANGE_DESCRIPTION = format("二分结束条件，容差范围，(默认是: %s)", DEFAULT_DICHOTOMY_ERROR_RANGE_STRING);
+    public static final String TCR_MIN_ARG = "tcrMin";
+    public static final double DEFAULT_TCR_MIN = 1E-9;
+    public static final String DEFAULT_TCR_MIN_STRING = Double.toString(DEFAULT_TCR_MIN);
+    public static final String TCR_MIN_DESCRIPTION = format("时间压缩比的最小值限制，(默认是: %s)", DEFAULT_TCR_MIN_STRING);
+    public static final String TCR_MAX_ARG = "tcrMax";
+    public static final double DEFAULT_TCR_MAX = 1;
+    public static final String DEFAULT_TCR_MAX_STRING = Double.toString(DEFAULT_TCR_MAX);
+    public static final String TCR_MAX_DESCRIPTION = format("时间压缩比的最大值限制，(默认是: %s)", DEFAULT_TCR_MAX_STRING);
+
+
     public static final String PROPERTY_FILE_ARG = "P";
     public static final String PROPERTY_ARG = "p";
     private static final String THREADS_DESCRIPTION = format("number of worker threads to execute with (default: %s)", THREADS_DEFAULT_STRING);
@@ -146,6 +168,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     private static final String SPINNER_SLEEP_DURATION_DESCRIPTION = "sleep duration (ms) injected into busy wait loops (to reduce CPU consumption)";
     private static final String SKIP_COUNT_ARG_LONG = "skip";
     private static final String WARMUP_COUNT_ARG_LONG = "warmup";
+    public static final String ESTIMATE_TEST_TIME_ARG_LONG = "estimate";
+    public static final String ACCURATE_TEST_TIME_ARG_LONG = "accurate";
+    public static final String DICHOTOMY_ERROR_RANGE_ARG_LONG = "error_range";
+    public static final String TCR_MIN_ARG_LONG = "tcr_min";
+    public static final String TCR_MAX_ARG_LONG = "tcr_max";
     private static final String PROPERTY_FILE_DESCRIPTION = "load properties from file(s) - files will be loaded in the order provided\n" + "first files are highest priority; later values will not override earlier values";
     private static final String PROPERTY_DESCRIPTION = "properties to be passed to DB and Workload - these will override properties loaded from files";
     private static final char COMMANDLINE_SEPARATOR_CHAR = '|';
@@ -160,7 +187,7 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     private final int statusDisplayIntervalAsSeconds;
     private final TimeUnit timeUnit;
     private final String resultDirPath;
-    public double timeCompressionRatio;
+    private double timeCompressionRatio;
     private final int validationParametersSize;
     private final boolean validationSerializationCheck;
     private final boolean recordDelayedOperations;
@@ -168,11 +195,22 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     private final long spinnerSleepDurationAsMilli;
     private final boolean printHelp;
     private final boolean ignoreScheduledStartTimes;
-    private final long warmupCount;
+    private long warmupCount;
     private final long skipCount;
     private final boolean flushLog;
+    private final long estimateTestTime;
+    private final long accurateTestTime;
+    private final double dichotomyErrorRange;
+    private final double tcrLeft;
+    private final double tcrRight;
 
-    public ConsoleAndFileDriverConfiguration(Map<String, String> paramsMap, String mode, String name, String dbClassName, String workloadClassName, long operationCount, int threadCount, int statusDisplayIntervalAsSeconds, TimeUnit timeUnit, String resultDirPath, double timeCompressionRatio, int validationParametersSize, boolean validationSerializationCheck, boolean recordDelayedOperations, String databaseValidationFilePath, long spinnerSleepDurationAsMilli, boolean printHelp, boolean ignoreScheduledStartTimes, long warmupCount, long skipCount, boolean flushLog) {
+    public ConsoleAndFileDriverConfiguration(Map<String, String> paramsMap, String mode, String name, String dbClassName
+            , String workloadClassName, long operationCount, int threadCount, int statusDisplayIntervalAsSeconds
+            , TimeUnit timeUnit, String resultDirPath, double timeCompressionRatio, int validationParametersSize
+            , boolean validationSerializationCheck, boolean recordDelayedOperations, String databaseValidationFilePath
+            , long spinnerSleepDurationAsMilli, boolean printHelp, boolean ignoreScheduledStartTimes, long warmupCount
+            , long skipCount, boolean flushLog, long estimateTestTime, long accurateTestTime, double dichotomyErrorRange
+            , double tcrLeft, double tcrRight) {
         if (null == paramsMap) {
             paramsMap = new HashMap<>();
         }
@@ -197,7 +235,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         this.warmupCount = warmupCount;
         this.skipCount = skipCount;
         this.flushLog = flushLog;
-
+        this.estimateTestTime = estimateTestTime;
+        this.accurateTestTime = accurateTestTime;
+        this.dichotomyErrorRange = dichotomyErrorRange;
+        this.tcrLeft = tcrLeft;
+        this.tcrRight = tcrRight;
         if (null != mode) {
             paramsMap.put(MODE_ARG, mode);
         }
@@ -227,6 +269,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         paramsMap.put(WARMUP_COUNT_ARG, Long.toString(warmupCount));
         paramsMap.put(SKIP_COUNT_ARG, Long.toString(skipCount));
         paramsMap.put(FLUSH_LOG_ARG, Boolean.toString(flushLog));
+        paramsMap.put(ESTIMATE_TEST_TIME_ARG, Long.toString(estimateTestTime));
+        paramsMap.put(ACCURATE_TEST_TIME_ARG, Long.toString(accurateTestTime));
+        paramsMap.put(DICHOTOMY_ERROR_RANGE_ARG, Double.toString(dichotomyErrorRange));
+        paramsMap.put(TCR_MIN_ARG, Double.toString(tcrLeft));
+        paramsMap.put(TCR_MAX_ARG, Double.toString(tcrRight));
         // Validation specific
         if (null != databaseValidationFilePath) {
             paramsMap.put(DB_VALIDATION_FILE_PATH_ARG, databaseValidationFilePath);
@@ -259,6 +306,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         defaultParamsMap.put(SPINNER_SLEEP_DURATION_ARG, SPINNER_SLEEP_DURATION_DEFAULT_STRING);
         defaultParamsMap.put(WARMUP_COUNT_ARG, WARMUP_COUNT_DEFAULT_STRING);
         defaultParamsMap.put(SKIP_COUNT_ARG, SKIP_COUNT_DEFAULT_STRING);
+        defaultParamsMap.put(ESTIMATE_TEST_TIME_ARG, ESTIMATE_TEST_DEFAULT_TIME_STRING);
+        defaultParamsMap.put(ACCURATE_TEST_TIME_ARG, ACCURATE_TEST_DEFAULT_TIME_STRING);
+        defaultParamsMap.put(DICHOTOMY_ERROR_RANGE_ARG, DEFAULT_DICHOTOMY_ERROR_RANGE_STRING);
+        defaultParamsMap.put(TCR_MIN_ARG, DEFAULT_TCR_MIN_STRING);
+        defaultParamsMap.put(TCR_MAX_ARG, DEFAULT_TCR_MAX_STRING);
         return defaultParamsMap;
     }
 
@@ -340,11 +392,22 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
             long skipCount = Long.parseLong(paramsMap.get(SKIP_COUNT_ARG));
             long warmupCount = Long.parseLong(paramsMap.get(WARMUP_COUNT_ARG));
             boolean printHelp = Boolean.parseBoolean(paramsMap.get(HELP_ARG));
+
             boolean recordDelayedOperations = Boolean.parseBoolean(paramsMap.get(RECORD_DELAYED_OPERATIONS_ARG));
             boolean ignoreScheduledStartTimes = Boolean.parseBoolean(paramsMap.get(IGNORE_SCHEDULED_START_TIMES_ARG));
-            // 这里以为没有配置 flush_log，因此 parseBoolean 会自动将 null转换为 false
+            long estimateTestTime = Long.parseLong(paramsMap.get(ESTIMATE_TEST_TIME_ARG));
+            long accurateTestTime = Long.parseLong(paramsMap.get(ACCURATE_TEST_TIME_ARG));
+            double dichotomyErrorRange = Double.parseDouble(paramsMap.get(DICHOTOMY_ERROR_RANGE_ARG));
+            double tcrLeft = Double.parseDouble(paramsMap.get(TCR_MIN_ARG));
+            double tcrRight = Double.parseDouble(paramsMap.get(TCR_MAX_ARG));
+            // 这里因为没有配置 flush_log，因此 parseBoolean 会自动将 null转换为 false
             boolean flushLog = Boolean.parseBoolean(paramsMap.get(FLUSH_LOG_ARG));
-            return new ConsoleAndFileDriverConfiguration(paramsMap, mode, name, dbClassName, workloadClassName, operationCount, threadCount, statusDisplayIntervalAsSeconds, timeUnit, resultDirPath, timeCompressionRatio, validationParametersSize, validationSerializationCheck, recordDelayedOperations, databaseValidationFilePath, spinnerSleepDurationAsMilli, printHelp, ignoreScheduledStartTimes, warmupCount, skipCount, flushLog);
+            return new ConsoleAndFileDriverConfiguration(paramsMap, mode, name, dbClassName, workloadClassName
+                    , operationCount, threadCount, statusDisplayIntervalAsSeconds, timeUnit, resultDirPath
+                    , timeCompressionRatio, validationParametersSize, validationSerializationCheck
+                    , recordDelayedOperations, databaseValidationFilePath, spinnerSleepDurationAsMilli
+                    , printHelp, ignoreScheduledStartTimes, warmupCount, skipCount, flushLog, estimateTestTime
+                    , accurateTestTime, dichotomyErrorRange, tcrLeft, tcrRight);
         } catch (DriverConfigurationException e) {
             throw new DriverConfigurationException(format("%s\n%s", e.getMessage(), commandlineHelpString()), e);
         }
@@ -470,7 +533,7 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
                     /*
                      * 合并多个文件中的配置参数
                      * 虽然此处设置的overwrite为true，但由于在调用mergeMaps()时，fileParams为新文件，因此结果还是类似不覆盖
-                     * 此处有逻辑问题，如果在调用mergeMaps()时，tempFileParams与fileParams对调位置，overwrite设置为false，
+                     * 此处容易理解错误，如果在调用mergeMaps()时，tempFileParams与fileParams对调位置，overwrite设置为false，
                      * 理解起来会更方便
                      */
                     boolean overwrite = true;
@@ -509,6 +572,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         paramsMap = replaceKey(paramsMap, SPINNER_SLEEP_DURATION_ARG_LONG, SPINNER_SLEEP_DURATION_ARG);
         paramsMap = replaceKey(paramsMap, WARMUP_COUNT_ARG_LONG, WARMUP_COUNT_ARG);
         paramsMap = replaceKey(paramsMap, SKIP_COUNT_ARG_LONG, SKIP_COUNT_ARG);
+        paramsMap = replaceKey(paramsMap, ESTIMATE_TEST_TIME_ARG_LONG, ESTIMATE_TEST_TIME_ARG);
+        paramsMap = replaceKey(paramsMap, ACCURATE_TEST_TIME_ARG_LONG, ACCURATE_TEST_TIME_ARG);
+        paramsMap = replaceKey(paramsMap, DICHOTOMY_ERROR_RANGE_ARG_LONG, DICHOTOMY_ERROR_RANGE_ARG);
+        paramsMap = replaceKey(paramsMap, TCR_MIN_ARG_LONG, TCR_MIN_ARG);
+        paramsMap = replaceKey(paramsMap, TCR_MAX_ARG_LONG, TCR_MAX_ARG);
         return paramsMap;
     }
 
@@ -583,6 +651,21 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
 
         Option skipCountOption = OptionBuilder.hasArgs(1).withArgName("count").withDescription(SKIP_COUNT_DESCRIPTION).withLongOpt(SKIP_COUNT_ARG_LONG).create(SKIP_COUNT_ARG);
         options.addOption(skipCountOption);
+
+        Option estimateTestTimeOption = OptionBuilder.hasArgs(1).withArgName("milli").withDescription(ESTIMATE_TEST_TIME_DESCRIPTION).withLongOpt(ESTIMATE_TEST_TIME_ARG_LONG).create(ESTIMATE_TEST_TIME_ARG);
+        options.addOption(estimateTestTimeOption);
+
+        Option accurateTestTimeOption = OptionBuilder.hasArgs(1).withArgName("milli").withDescription(ACCURATE_TEST_TIME_DESCRIPTION).withLongOpt(ACCURATE_TEST_TIME_ARG_LONG).create(ACCURATE_TEST_TIME_ARG);
+        options.addOption(accurateTestTimeOption);
+
+        Option dichotomyErrorRangeOption = OptionBuilder.hasArgs(1).withArgName("error_range").withDescription(DICHOTOMY_ERROR_RANGE_DESCRIPTION).withLongOpt(DICHOTOMY_ERROR_RANGE_ARG_LONG).create(DICHOTOMY_ERROR_RANGE_ARG);
+        options.addOption(dichotomyErrorRangeOption);
+
+        Option tcrLeftOption = OptionBuilder.hasArgs(1).withArgName("min").withDescription(TCR_MIN_DESCRIPTION).withLongOpt(TCR_MIN_ARG_LONG).create(TCR_MIN_ARG);
+        options.addOption(tcrLeftOption);
+
+        Option tcrRighOption = OptionBuilder.hasArgs(1).withArgName("max").withDescription(TCR_MAX_DESCRIPTION).withLongOpt(TCR_MAX_ARG_LONG).create(TCR_MAX_ARG);
+        options.addOption(tcrRighOption);
 
         Option printHelpOption = OptionBuilder.withDescription(HELP_DESCRIPTION).create(HELP_ARG);
         options.addOption(printHelpOption);
@@ -690,6 +773,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     }
 
     @Override
+    public void setTimeCompressionRatio(double tcr) {
+        this.timeCompressionRatio = tcr;
+    }
+
+    @Override
     public boolean validationSerializationCheck() {
         return validationSerializationCheck;
     }
@@ -735,6 +823,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     }
 
     @Override
+    public void setWarmupCount(long warmupCount) {
+        this.warmupCount = warmupCount;
+    }
+
+    @Override
     public long skipCount() {
         return skipCount;
     }
@@ -742,6 +835,31 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     @Override
     public boolean flushLog() {
         return flushLog;
+    }
+
+    @Override
+    public long estimateTestTime() {
+        return estimateTestTime;
+    }
+
+    @Override
+    public long accurateTestTime() {
+        return accurateTestTime;
+    }
+
+    @Override
+    public double dichotomyErrorRange() {
+        return dichotomyErrorRange;
+    }
+
+    @Override
+    public double tcrLeft() {
+        return tcrLeft;
+    }
+
+    @Override
+    public double tcrRight() {
+        return tcrRight;
     }
 
     @Override
@@ -798,7 +916,19 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         long newSkipCount = (newParamsMapWithSimpleKeys.containsKey(SKIP_COUNT_ARG)) ? Long.parseLong(newParamsMapWithSimpleKeys.get(SKIP_COUNT_ARG)) : skipCount;
         boolean newFlushLog = (newParamsMapWithSimpleKeys.containsKey(FLUSH_LOG_ARG)) ? Boolean.parseBoolean(newParamsMapWithSimpleKeys.get(FLUSH_LOG_ARG)) : flushLog;
 
-        return new ConsoleAndFileDriverConfiguration(newOtherParams, newMode, newName, newDbClassName, newWorkloadClassName, newOperationCount, newThreadCount, newStatusDisplayIntervalAsSeconds, newTimeUnit, newResultDirPath, newTimeCompressionRatio, newValidationParametersSize, newValidationSerializationCheck, newRecordDelayedOperations, newDatabaseValidationFilePath, newSpinnerSleepDurationAsMilli, newPrintHelp, newIgnoreScheduledStartTimes, newWarmupCount, newSkipCount, newFlushLog);
+        long newEstimateTestTime = (newParamsMapWithSimpleKeys.containsKey(ESTIMATE_TEST_TIME_ARG)) ? Long.parseLong(paramsMap.get(ESTIMATE_TEST_TIME_ARG)) : estimateTestTime;
+        long newAccurateTestTime = (newParamsMapWithSimpleKeys.containsKey(ACCURATE_TEST_TIME_ARG)) ? Long.parseLong(paramsMap.get(ACCURATE_TEST_TIME_ARG)) : accurateTestTime;
+        double newDichotomyErrorRange = (newParamsMapWithSimpleKeys.containsKey(DICHOTOMY_ERROR_RANGE_ARG)) ? Double.parseDouble(paramsMap.get(DICHOTOMY_ERROR_RANGE_ARG)) : dichotomyErrorRange;
+        double newTcrLeft = (newParamsMapWithSimpleKeys.containsKey(TCR_MIN_ARG)) ? Double.parseDouble(paramsMap.get(TCR_MIN_ARG)) : tcrLeft;
+        double newTcrRight = (newParamsMapWithSimpleKeys.containsKey(TCR_MAX_ARG)) ? Double.parseDouble(paramsMap.get(TCR_MAX_ARG)) : tcrRight;
+
+        return new ConsoleAndFileDriverConfiguration(newOtherParams, newMode, newName, newDbClassName
+                , newWorkloadClassName, newOperationCount, newThreadCount, newStatusDisplayIntervalAsSeconds
+                , newTimeUnit, newResultDirPath, newTimeCompressionRatio, newValidationParametersSize
+                , newValidationSerializationCheck, newRecordDelayedOperations, newDatabaseValidationFilePath
+                , newSpinnerSleepDurationAsMilli, newPrintHelp, newIgnoreScheduledStartTimes, newWarmupCount
+                , newSkipCount, newFlushLog, newEstimateTestTime, newAccurateTestTime, newDichotomyErrorRange
+                , newTcrLeft, newTcrRight);
     }
 
     /**
@@ -1005,6 +1135,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
                 sb.append(configurationParameter.getKey()).append("=").append(configurationParameter.getValue()).append("\n");
             }
         }
+        sb.append(ESTIMATE_TEST_TIME_ARG_LONG).append("=").append(estimateTestTime).append("\n");
+        sb.append(ACCURATE_TEST_TIME_ARG_LONG).append("=").append(accurateTestTime).append("\n");
+        sb.append(DICHOTOMY_ERROR_RANGE_ARG_LONG).append("=").append(dichotomyErrorRange).append("\n");
+        sb.append(TCR_MIN_ARG_LONG).append("=").append(tcrLeft).append("\n");
+        sb.append(TCR_MAX_ARG_LONG).append("=").append(tcrRight).append("\n");
         return sb.toString();
     }
 
