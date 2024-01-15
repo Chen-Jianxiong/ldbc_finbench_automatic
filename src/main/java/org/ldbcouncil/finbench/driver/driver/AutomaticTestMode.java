@@ -124,7 +124,8 @@ public class AutomaticTestMode implements DriverMode<Object> {
         loggingService.info("-----------------------------------精确调参阶段-------------------------------------------");
         r = Math.min(l * 10, controlService.configuration().tcrRight());
         boolean succeed = false;
-        while (r - l >= controlService.configuration().dichotomyErrorRange()) {
+        // 保证至少执行一次精确调参阶段
+        do {
             // 第一次先尝试使用预估阶段的结果运行
             double tcr = controlService.configuration().timeCompressionRatio();
             loggingService.info("新的一轮：时间压缩比：" + tcr);
@@ -138,7 +139,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
             }
             tcr = l + (r - l) / 2;
             controlService.configuration().setTimeCompressionRatio(tcr);
-        }
+        } while (r - l >= controlService.configuration().dichotomyErrorRange());
         // 如果找到最后的l没有成功，则更换成最后成功的那一次
         if (!succeed) {
             controlService.configuration().setTimeCompressionRatio(r);

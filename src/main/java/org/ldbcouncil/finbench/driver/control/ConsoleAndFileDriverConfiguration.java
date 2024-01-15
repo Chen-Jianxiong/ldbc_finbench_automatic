@@ -1135,11 +1135,6 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
                 sb.append(configurationParameter.getKey()).append("=").append(configurationParameter.getValue()).append("\n");
             }
         }
-        sb.append(ESTIMATE_TEST_TIME_ARG_LONG).append("=").append(estimateTestTime).append("\n");
-        sb.append(ACCURATE_TEST_TIME_ARG_LONG).append("=").append(accurateTestTime).append("\n");
-        sb.append(DICHOTOMY_ERROR_RANGE_ARG_LONG).append("=").append(dichotomyErrorRange).append("\n");
-        sb.append(TCR_MIN_ARG_LONG).append("=").append(tcrLeft).append("\n");
-        sb.append(TCR_MAX_ARG_LONG).append("=").append(tcrRight).append("\n");
         return sb.toString();
     }
 
