@@ -146,7 +146,7 @@ public class WorkloadRunner {
                         expire.set(true);
                     }
                 }, milli);
-                while (!expire.get() || workloadRunnerThread.state().equals(WorkloadRunnerThreadState.NOT_STARTED)) {
+                while (!expire.get() && workloadRunnerThread.state().equals(WorkloadRunnerThreadState.RUNNING)) {
                     Spinner.powerNap(RUNNER_POLLING_INTERVAL_AS_MILLI);
                 }
                 timer.cancel();

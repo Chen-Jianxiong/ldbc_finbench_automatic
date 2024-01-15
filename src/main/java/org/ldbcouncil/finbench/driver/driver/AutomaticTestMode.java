@@ -48,8 +48,6 @@ import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 
-
-
 /**
  * 描述：自动测试模式，采用二分方法来测试出适合当前机器的配置参数。
  * 备注：
@@ -106,8 +104,8 @@ public class AutomaticTestMode implements DriverMode<Object> {
         // 快速预估阶段
         loggingService.info("-----------------------------------快速预估阶段-------------------------------------------");
         // 增加预热数量，防止数量过少达不到设定的时间
-        // 暂时不采用，若tcr小的时候比较吃亏，明明不需要那么多时间就能执行完，但还是要坚持到机器性能下降之后
-        // ((ConsoleAndFileDriverConfiguration) controlService.configuration()).setWarmupCount(Integer.MAX_VALUE);
+        // 若tcr足够小（在estimateTestTime之内完成预热），可使用总的操作总数来进行预估，以增加快速预估阶段的准确性
+        controlService.configuration().setWarmupCount(controlService.configuration().operationCount());
         while (r - l >= controlService.configuration().dichotomyErrorRange()) {
             // 第一次先尝试使用配置指定的tcr运行
             double tcr = controlService.configuration().timeCompressionRatio();
@@ -124,13 +122,12 @@ public class AutomaticTestMode implements DriverMode<Object> {
 
         // 精确调参阶段，以防止产时间运行时机器损耗而导致的性能下降
         loggingService.info("-----------------------------------精确调参阶段-------------------------------------------");
-        l = throughput;
-        r = Math.min(l * 5, 1);
+        r = Math.min(l * 10, controlService.configuration().tcrRight());
         boolean succeed = false;
         while (r - l >= controlService.configuration().dichotomyErrorRange()) {
-            double tcr = l + (r - l) / 2;
+            // 第一次先尝试使用预估阶段的结果运行
+            double tcr = controlService.configuration().timeCompressionRatio();
             loggingService.info("新的一轮：时间压缩比：" + tcr);
-            controlService.configuration().setTimeCompressionRatio(tcr);
             if (validationTest(controlService.configuration().accurateTestTime())) {
                 r = tcr;
                 succeed = true;
@@ -139,12 +136,13 @@ public class AutomaticTestMode implements DriverMode<Object> {
                 l = tcr;
                 succeed = false;
             }
+            tcr = l + (r - l) / 2;
+            controlService.configuration().setTimeCompressionRatio(tcr);
         }
         // 如果找到最后的l没有成功，则更换成最后成功的那一次
         if (!succeed) {
-            ((ConsoleAndFileDriverConfiguration) controlService.configuration()).setTimeCompressionRatio(r);
-            // 就不必再执行了，因为此时机器状态已经下滑
-            // validationTest(-1);
+            controlService.configuration().setTimeCompressionRatio(r);
+            // 此时机器状态已经下滑，就不必再重复测试一次了
         }
         return throughput;
     }
@@ -157,16 +155,16 @@ public class AutomaticTestMode implements DriverMode<Object> {
     private boolean validationTest(long milli) throws DriverException {
         List<ResultsLogValidationResult.ValidationError> errors = executionAndAwaitCompletion(milli);
         if (errors.isEmpty()) {
-            loggingService.info("\n----------------------------------此次测试校验通过----------------------------\n"
-                    + "----------------------------throughput: " + throughput + "-----------------------------\n"
-                    + "----------------------------------tcr: " + controlService.configuration().timeCompressionRatio()
-                    + "-----------------------------");
+            loggingService.info("\n----------------------------此次测试校验通过----------------------------\n"
+                    + "----------------------------tcr: " + controlService.configuration().timeCompressionRatio()
+                    + "----------------------------\n"
+                    + "----------------------------throughput: " + throughput + "----------------------------");
             return true;
         } else {
-            loggingService.info("\n----------------------------------此次测试校验失败----------------------------\n"
-                    + "-----------------------------throughput: " + throughput + "-----------------------------\n"
-                    + "----------------------------------tcr: " + controlService.configuration().timeCompressionRatio()
-                    + "----------------------------");
+            loggingService.info("\n----------------------------此次测试校验失败----------------------------\n"
+                    + "----------------------------tcr: " + controlService.configuration().timeCompressionRatio()
+                    + "----------------------------\n"
+                    + "----------------------------throughput: " + throughput + "----------------------------");
             return false;
         }
     }
