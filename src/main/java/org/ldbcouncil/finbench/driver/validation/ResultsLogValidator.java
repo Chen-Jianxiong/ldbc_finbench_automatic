@@ -32,10 +32,10 @@ public class ResultsLogValidator {
      * @return ResultsLogValidationResult containing the list of delayed operations
      */
     public ResultsLogValidationResult validate(
-        ResultsLogValidationSummary summary,
-        ResultsLogValidationTolerances tolerances,
-        boolean recordDelayedOperations,
-        WorkloadResultsSnapshot workloadResults) {
+            ResultsLogValidationSummary summary,
+            ResultsLogValidationTolerances tolerances,
+            boolean recordDelayedOperations,
+            WorkloadResultsSnapshot workloadResults) {
 
         ResultsLogValidationResult result = new ResultsLogValidationResult();
 
@@ -50,18 +50,61 @@ public class ResultsLogValidator {
             long allowedLateOperations = Math.round(
                     (cnt == null ? 0 : cnt) * tolerances.toleratedExcessiveDelayCountPercentage());
             if (recordDelayedOperations
-                && summary.excessiveDelayCountPerType().get(operationType) > allowedLateOperations) {
+                    && summary.excessiveDelayCountPerType().get(operationType) > allowedLateOperations) {
                 result.aboveThreshold();
                 result.addError(
-                    ValidationErrorType.TOO_MANY_LATE_OPERATIONS,
-                    format("Late Count for %s (%s) > (%s) Tolerated Late Count",
-                        operationType,
-                        summary.excessiveDelayCountPerType().get(operationType),
-                        allowedLateOperations
-                    )
+                        ValidationErrorType.TOO_MANY_LATE_OPERATIONS,
+                        format("Late Count for %s (%s) > (%s) Tolerated Late Count",
+                                operationType,
+                                summary.excessiveDelayCountPerType().get(operationType),
+                                allowedLateOperations
+                        )
                 );
             }
         }
+        return result;
+    }
+
+    /**
+     * validate方法自动化测试版
+     */
+    public ResultsLogValidationResult validateAutomatic(
+            ResultsLogValidationSummary summary,
+            ResultsLogValidationTolerances tolerances,
+            WorkloadResultsSnapshot workloadResults) {
+
+        ResultsLogValidationResult result = new ResultsLogValidationResult();
+
+        Map<String, Long> operationCountPerTypeMap = new HashMap<>();
+        for (OperationMetricsSnapshot metric : workloadResults.allMetrics()) {
+            operationCountPerTypeMap.put(metric.name(), metric.count());
+        }
+
+        for (String operationType : summary.excessiveDelayCountPerType().keySet()) {
+            // 单独计算各个类型的可容忍延迟计数
+            Long cnt = operationCountPerTypeMap.get(operationType);
+            long allowedLateOperations = Math.round(
+                    (cnt == null ? 0 : cnt) * tolerances.toleratedExcessiveDelayCountPercentage());
+            if (summary.excessiveDelayCountPerType().get(operationType) > allowedLateOperations) {
+                result.addError(
+                        ValidationErrorType.TOO_MANY_LATE_OPERATIONS,
+                        format("Late Count for %s (%s) > (%s) Tolerated Late Count",
+                                operationType,
+                                summary.excessiveDelayCountPerType().get(operationType),
+                                allowedLateOperations
+                        )
+                );
+            }
+        }
+
+        result.setThroughput(workloadResults.throughput());
+        result.setOperationCount(workloadResults.totalOperationCount());
+        // 判断是否超时
+        if (summary.excessiveDelayCount() > tolerances.toleratedExcessiveDelayCount()) {
+            result.aboveThreshold();
+        }
+        // 计算及时率
+        result.computeOnTimeRatio(summary.excessiveDelayCount());
         return result;
     }
 
@@ -75,17 +118,17 @@ public class ResultsLogValidator {
      * @throws ValidationException When the result CSV file could not be opened or invalid delay is computed.
      */
     public ResultsLogValidationSummary compute(File resultsLog, long excessiveDelayThresholdAsMilli)
-        throws ValidationException {
+            throws ValidationException {
         // 读取基准测试结果文件，计算最大延迟 max(实际开始时间 - 预计开始时间)
         long maxDelayAsMilli = maxDelayAsMilli(resultsLog);
         ResultsLogValidationSummaryCalculator calculator = new ResultsLogValidationSummaryCalculator(
-            maxDelayAsMilli,
-            excessiveDelayThresholdAsMilli
+                maxDelayAsMilli,
+                excessiveDelayThresholdAsMilli
         );
 
         try (SimpleCsvFileReader reader = new SimpleCsvFileReader(
-            resultsLog,
-            SimpleCsvFileReader.DEFAULT_COLUMN_SEPARATOR_REGEX_STRING)) {
+                resultsLog,
+                SimpleCsvFileReader.DEFAULT_COLUMN_SEPARATOR_REGEX_STRING)) {
             // skip headers
             reader.next();
             while (reader.hasNext()) {
@@ -116,8 +159,8 @@ public class ResultsLogValidator {
     private long maxDelayAsMilli(File resultsLog) throws ValidationException {
         long maxDelayAsMilli = 0;
         try (SimpleCsvFileReader reader = new SimpleCsvFileReader(
-            resultsLog,
-            SimpleCsvFileReader.DEFAULT_COLUMN_SEPARATOR_REGEX_STRING)) {
+                resultsLog,
+                SimpleCsvFileReader.DEFAULT_COLUMN_SEPARATOR_REGEX_STRING)) {
             // skip headers
             reader.next();
             while (reader.hasNext()) {
@@ -130,15 +173,15 @@ public class ResultsLogValidator {
                 long delayAsMilli = actualStartTimeAsMilli - scheduledStartTimeAsMilli;
                 if (delayAsMilli < 0) {
                     throw new ValidationException(
-                        format("Delay can not be negative\n" + "Delay: %s (ms) / %s\n"
-                                + "Scheduled Start Time: %s (ms) / %s\n" + "Actual Start Time: %s (ms) / %s",
-                            delayAsMilli,
-                            TEMPORAL_UTIL.milliDurationToString(delayAsMilli),
-                            scheduledStartTimeAsMilli,
-                            TEMPORAL_UTIL.milliTimeToTimeString(scheduledStartTimeAsMilli),
-                            actualStartTimeAsMilli,
-                            TEMPORAL_UTIL.milliTimeToTimeString(actualStartTimeAsMilli)
-                        )
+                            format("Delay can not be negative\n" + "Delay: %s (ms) / %s\n"
+                                            + "Scheduled Start Time: %s (ms) / %s\n" + "Actual Start Time: %s (ms) / %s",
+                                    delayAsMilli,
+                                    TEMPORAL_UTIL.milliDurationToString(delayAsMilli),
+                                    scheduledStartTimeAsMilli,
+                                    TEMPORAL_UTIL.milliTimeToTimeString(scheduledStartTimeAsMilli),
+                                    actualStartTimeAsMilli,
+                                    TEMPORAL_UTIL.milliTimeToTimeString(actualStartTimeAsMilli)
+                            )
                     );
                 }
                 if (delayAsMilli > maxDelayAsMilli) {

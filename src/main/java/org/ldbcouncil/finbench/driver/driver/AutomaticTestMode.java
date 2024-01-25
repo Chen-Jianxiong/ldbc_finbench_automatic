@@ -7,7 +7,6 @@ import org.ldbcouncil.finbench.driver.DbException;
 import org.ldbcouncil.finbench.driver.Workload;
 import org.ldbcouncil.finbench.driver.WorkloadException;
 import org.ldbcouncil.finbench.driver.WorkloadStreams;
-import org.ldbcouncil.finbench.driver.control.ConsoleAndFileDriverConfiguration;
 import org.ldbcouncil.finbench.driver.control.ControlService;
 import org.ldbcouncil.finbench.driver.generator.GeneratorFactory;
 import org.ldbcouncil.finbench.driver.generator.RandomDataGeneratorFactory;
@@ -43,7 +42,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
@@ -66,8 +64,6 @@ public class AutomaticTestMode implements DriverMode<Object> {
     private CompletionTimeService completionTimeService = null;
     private WorkloadRunner workloadRunner = null;
     private ResultsLogWriter resultsLogWriter = null;
-
-    public static double throughput;
 
     public AutomaticTestMode(
             ControlService controlService,
@@ -99,87 +95,143 @@ public class AutomaticTestMode implements DriverMode<Object> {
     public Object startExecutionAndAwaitCompletion() throws DriverException {
         double l = controlService.configuration().tcrLeft();
         double r = controlService.configuration().tcrRight();
-        // 记录最后成功的一次的吞吐量
-        double throughput = 0;
-        // 快速预估阶段
+        // 记录当前以及最后成功的一次的结果
+        ResultsLogValidationResult successfulResult = new ResultsLogValidationResult();
+        ResultsLogValidationResult currentResult;
+
         loggingService.info("-----------------------------------快速预估阶段-------------------------------------------");
-        // 增加预热数量，防止数量过少达不到设定的时间
-        // 若tcr足够小（在estimateTestTime之内完成预热），可使用总的操作总数来进行预估，以增加快速预估阶段的准确性
-        controlService.configuration().setWarmupCount(controlService.configuration().operationCount());
-        while (r - l >= controlService.configuration().dichotomyErrorRange()) {
+        // 假设tcr=1时，一分钟大概需要的基础操作数量（初始先设大一点，后面根据机器情况来变化）
+        long baseCnt = 10000;
+        // 存储原始的总操作数量
+        long sourceCnt = controlService.configuration().operationCount();
+        // 获取二分结束条件，容差范围
+        double range = controlService.configuration().dichotomyErrorRange();
+        // 本轮 时间压缩比
+        double tcr = 0;
+        while (r - l >= range) {
             // 第一次先尝试使用配置指定的tcr运行
-            double tcr = controlService.configuration().timeCompressionRatio();
-            loggingService.info("新的一轮：时间压缩比：" + tcr);
-            if (validationTest(controlService.configuration().estimateTestTime())) {
+            if (tcr != 0) {
+                tcr = l + (r - l) / 2;
+                controlService.configuration().setTimeCompressionRatio(tcr);
+            } else {
+                tcr = controlService.configuration().timeCompressionRatio();
+            }
+            // 设置预热操作数量
+            computeWarmupCount(baseCnt, sourceCnt);
+            loggingService.info(String.format("新的一轮：时间压缩比：%f warmup count: %d",
+                    tcr, controlService.configuration().warmupCount()));
+            currentResult = validationTest(true, controlService.configuration().estimateTestTime());
+
+            if (currentResult.isSuccessful()) {
                 r = tcr;
-                throughput = AutomaticTestMode.throughput;
+                successfulResult = currentResult;
             } else {
                 l = tcr;
             }
-            tcr = l + (r - l) / 2;
-            controlService.configuration().setTimeCompressionRatio(tcr);
+            // 根据当前吞吐量来判断tcr=1时每分钟的基础操作数，再*1.5避免意外
+            baseCnt = (long) (Math.ceil(currentResult.throughput()) * tcr * 90);
         }
 
-        // 精确调参阶段，以防止产时间运行时机器损耗而导致的性能下降
         loggingService.info("-----------------------------------精确调参阶段-------------------------------------------");
+        // 理论情况是精准tcr >= 预估tcr，防止意外再给一点可能更小的空间
+        l = controlService.configuration().tcrLeft() + (l - controlService.configuration().tcrLeft()) * 0.7;
         r = Math.min(l * 10, controlService.configuration().tcrRight());
-        boolean succeed = false;
         // 保证至少执行一次精确调参阶段
+        tcr = 0;
         do {
             // 第一次先尝试使用预估阶段的结果运行
-            double tcr = controlService.configuration().timeCompressionRatio();
-            loggingService.info("新的一轮：时间压缩比：" + tcr);
-            if (validationTest(controlService.configuration().accurateTestTime())) {
+            if (tcr != 0) {
+                tcr = l + (r - l) / 2;
+                controlService.configuration().setTimeCompressionRatio(tcr);
+            } else {
+                tcr = controlService.configuration().timeCompressionRatio();
+            }
+            // 设置预热以及正式阶段的操作数量
+            computeWarmupCount(baseCnt, sourceCnt);
+            computeRunOperationCount(baseCnt, sourceCnt);
+            loggingService.info(String.format("新的一轮：时间压缩比：%f\t, warmup count: %d\t, operation count: %d",
+                    tcr, controlService.configuration().warmupCount(), controlService.configuration().operationCount()));
+
+            currentResult = validationTest(false, controlService.configuration().accurateTestTime());
+            if (currentResult.isSuccessful()) {
                 r = tcr;
-                succeed = true;
-                throughput = AutomaticTestMode.throughput;
+                successfulResult = currentResult;
             } else {
                 l = tcr;
-                succeed = false;
             }
-            tcr = l + (r - l) / 2;
-            controlService.configuration().setTimeCompressionRatio(tcr);
-        } while (r - l >= controlService.configuration().dichotomyErrorRange());
+            // 根据当前吞吐量来判断tcr=1时每分钟的基础操作数，再*1.5避免意外
+            baseCnt = (long) (Math.ceil(currentResult.throughput()) * tcr * 90);
+        } while (r - l >= range);
+
         // 如果找到最后的l没有成功，则更换成最后成功的那一次
-        if (!succeed) {
+        if (!currentResult.isSuccessful()) {
             controlService.configuration().setTimeCompressionRatio(r);
             // 此时机器状态已经下滑，就不必再重复测试一次了
         }
-        return throughput;
+        return successfulResult;
+    }
+
+    /**
+     * 设置预热操作数量
+     *
+     * @param baseCnt tcr=1，estimateTestTime=300000 时的基础操作数量
+     * @param sourceCnt 配置中指定的操作数
+     */
+    public void computeWarmupCount(long baseCnt, long sourceCnt) {
+        if (controlService.configuration().estimateTestTime() != -1) {
+            controlService.configuration().setWarmupCount((long) Math.max(
+                    baseCnt / controlService.configuration().timeCompressionRatio() *
+                            Math.ceil(controlService.configuration().estimateTestTime() / 60000.0), sourceCnt
+            ));
+        }
+    }
+
+    /**
+     * 设置正式运行阶段数量
+     *
+     * @param baseCnt tcr=1，estimateTestTime=300000 时的基础操作数量
+     * @param sourceCnt 配置中指定的操作数
+     */
+    public void computeRunOperationCount(long baseCnt, long sourceCnt) {
+        if (controlService.configuration().accurateTestTime() != -1) {
+            controlService.configuration().setOperationCount((long) Math.max(
+                    baseCnt / controlService.configuration().timeCompressionRatio() *
+                            Math.ceil(controlService.configuration().accurateTestTime() / 60000.0), sourceCnt
+            ));
+        }
     }
 
     /**
      * 执行一次配置参数测试
      *
-     * @return 一个boolean值，代表此次测试是否校验通过（延迟数小于阈值）
+     * @return ResultsLogValidationResult 测试结果
      */
-    private boolean validationTest(long milli) throws DriverException {
-        List<ResultsLogValidationResult.ValidationError> errors = executionAndAwaitCompletion(milli);
-        if (errors.isEmpty()) {
-            loggingService.info("\n----------------------------此次测试校验通过----------------------------\n"
-                    + "----------------------------tcr: " + controlService.configuration().timeCompressionRatio()
-                    + "----------------------------\n"
-                    + "----------------------------throughput: " + throughput + "----------------------------");
-            return true;
-        } else {
-            loggingService.info("\n----------------------------此次测试校验失败----------------------------\n"
-                    + "----------------------------tcr: " + controlService.configuration().timeCompressionRatio()
-                    + "----------------------------\n"
-                    + "----------------------------throughput: " + throughput + "----------------------------");
-            return false;
+    private ResultsLogValidationResult validationTest(boolean warmup, long milli) throws DriverException {
+        ResultsLogValidationResult result = executionAndAwaitCompletion(warmup, milli);
+        if (result == null) {
+            loggingService.info("获取结果测试结果失败");
+            return new ResultsLogValidationResult();
         }
+        loggingService.info(String.format("\n" +
+                        "----------------------------此次测试校验%s----------------------------\n" +
+                        "----------------------------tcr: %f----------------------------\n" +
+                        "----------------------------throughput: %f----------------------------\n" +
+                        "----------------------------onTimeRatio: %f----------------------------",
+                result.isSuccessful() ? "通过" : "失败",
+                controlService.configuration().timeCompressionRatio(), result.throughput(), result.onTimeRatio()));
+        return result;
     }
 
-    public List<ResultsLogValidationResult.ValidationError> executionAndAwaitCompletion(long milli)
+    public ResultsLogValidationResult executionAndAwaitCompletion(boolean warmup, long milli)
             throws DriverException {
-        List<ResultsLogValidationResult.ValidationError> error = null;
+        ResultsLogValidationResult result = null;
         if (controlService.configuration().warmupCount() > 0) {
             loggingService.info("\n"
                     + " --------------------\n"
                     + " --- Warmup Phase ---\n"
                     + " --------------------");
             doInit(true);
-            error = doExecute(true, milli);
+            result = doExecute(true, milli);
             try {
                 // TODO remove in future
                 // This is necessary to clear the runnable context pool
@@ -195,13 +247,14 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     + " --- No Warmup Phase Requested ---\n"
                     + " ---------------------------------");
         }
-        if (milli == -1) {
+        // 如果预热阶段就超时了，则直接返回
+        if (!warmup && result != null && result.isSuccessful()) {
             loggingService.info("\n"
                     + " -----------------\n"
                     + " --- Run Phase ---\n"
                     + " -----------------");
             doInit(false);
-            error = doExecute(false, -1);
+            result = doExecute(false, -1);
             try {
                 // TODO remove in future
                 // This is necessary to clear the runnable context pool
@@ -223,7 +276,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
 //            }
 //            loggingService.info("Workload completed successfully");
         }
-        return error;
+        return result;
     }
 
     private void doInit(boolean warmup) throws DriverException {
@@ -425,7 +478,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
         }
     }
 
-    private List<ResultsLogValidationResult.ValidationError> doExecute(boolean warmup, long milli) throws DriverException {
+    private ResultsLogValidationResult doExecute(boolean warmup, long milli) throws DriverException {
         // 关闭 workload、完成时间服务、指标服务
         try {
             ConcurrentErrorReporter errorReporter = null;
@@ -492,7 +545,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     ResultsLogValidator resultsLogValidator = new ResultsLogValidator();
                     // 计算可容忍延迟操作的总数
                     ResultsLogValidationTolerances resultsLogValidationTolerances =
-                            workload.resultsLogValidationTolerances(controlService.configuration(), warmup);
+                            workload.resultsLogValidationTolerancesAutomatic(workloadResults.totalOperationCount());
 
                     // 统计延迟操作数，生成一个直方图简易快照，返回每种操作类型的最小、最大、平均延迟
                     ResultsLogValidationSummary resultsLogValidationSummary = resultsLogValidator.compute(
@@ -511,10 +564,9 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     );
                     // TODO export result
                     // 验证基准测试的结果
-                    ResultsLogValidationResult validationResult = resultsLogValidator.validate(
+                    ResultsLogValidationResult validationResult = resultsLogValidator.validateAutomatic(
                             resultsLogValidationSummary,
                             resultsLogValidationTolerances,
-                            controlService.configuration().recordDelayedOperations(),
                             workloadResults
                     );
                     loggingService.info(validationResult.getScheduleAuditResult(
@@ -524,7 +576,7 @@ public class AutomaticTestMode implements DriverMode<Object> {
 //                        resultsValidationFile.toPath(),
 //                        resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
 //                    );
-                    return validationResult.errors();
+                    return validationResult;
                 }
             }
         } catch (Exception e) {

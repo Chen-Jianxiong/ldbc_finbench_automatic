@@ -105,11 +105,13 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     public static final String ESTIMATE_TEST_TIME_ARG = "ett";
     public static final long ESTIMATE_TEST_DEFAULT_TIME = 5 * 60 * 1000;
     public static final String ESTIMATE_TEST_DEFAULT_TIME_STRING = Long.toString(ESTIMATE_TEST_DEFAULT_TIME);
-    public static final String ESTIMATE_TEST_TIME_DESCRIPTION = format("快速预估阶段每次测试的时长，(默认是: %s)", ESTIMATE_TEST_DEFAULT_TIME_STRING);
+    public static final String ESTIMATE_TEST_TIME_DESCRIPTION = format("快速预估阶段每次测试的时长，(默认是: %s)，如果是-1，" +
+                    "则完成 warmup 数量的操作就结束", ESTIMATE_TEST_DEFAULT_TIME_STRING);
     public static final String ACCURATE_TEST_TIME_ARG = "att";
     public static final long ACCURATE_TEST_DEFAULT_TIME = 7200 * 1000;
     public static final String ACCURATE_TEST_DEFAULT_TIME_STRING = Long.toString(ACCURATE_TEST_DEFAULT_TIME);
-    public static final String ACCURATE_TEST_TIME_DESCRIPTION = format("精准调参阶段每次测试的时长，(默认是: %s)", ACCURATE_TEST_DEFAULT_TIME_STRING);
+    public static final String ACCURATE_TEST_TIME_DESCRIPTION = format("精准调参阶段每次测试的时长，(默认是: %s)，如果是-1，" +
+                    "则完成 operation_count 数量的操作就结束", ACCURATE_TEST_DEFAULT_TIME_STRING);
     public static final String DICHOTOMY_ERROR_RANGE_ARG = "der";
     public static final double DEFAULT_DICHOTOMY_ERROR_RANGE = 1E-5;
     public static final String DEFAULT_DICHOTOMY_ERROR_RANGE_STRING = Double.toString(DEFAULT_DICHOTOMY_ERROR_RANGE);
@@ -182,7 +184,7 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     private final String name;
     private final String dbClassName;
     private final String workloadClassName;
-    private final long operationCount;
+    private long operationCount;
     private final int threadCount;
     private final int statusDisplayIntervalAsSeconds;
     private final TimeUnit timeUnit;
@@ -825,6 +827,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     @Override
     public void setWarmupCount(long warmupCount) {
         this.warmupCount = warmupCount;
+    }
+
+    @Override
+    public void setOperationCount(long operationCount) {
+        this.operationCount = operationCount;
     }
 
     @Override

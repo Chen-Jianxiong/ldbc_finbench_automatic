@@ -50,6 +50,8 @@ public interface DriverConfiguration {
 
     void setWarmupCount(long warmupCount);
 
+    void setOperationCount(long operationCount);
+
     long estimateTestTime();
 
     long accurateTestTime();

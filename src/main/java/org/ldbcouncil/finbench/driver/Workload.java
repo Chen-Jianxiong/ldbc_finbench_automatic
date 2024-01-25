@@ -45,6 +45,24 @@ public abstract class Workload implements Closeable {
     }
 
     /**
+     * resultsLogValidationTolerances方法的自动化测试版
+     * @param operationCount
+     * @return
+     */
+    public ResultsLogValidationTolerances resultsLogValidationTolerancesAutomatic(
+            long operationCount
+    ) {
+        long excessiveDelayThresholdAsMilli = TimeUnit.SECONDS.toMillis(1);
+        double toleratedExcessiveDelayCountPercentage = 0.05; // 95% of the queries must run below delay threshold
+        // Total tolerated excessive delay count
+        long toleratedExcessiveDelayCount = Math.round(operationCount * toleratedExcessiveDelayCountPercentage);
+        return new ResultsLogValidationTolerances(
+                excessiveDelayThresholdAsMilli,
+                toleratedExcessiveDelayCount,
+                toleratedExcessiveDelayCountPercentage
+        );
+    }
+    /**
      * Called once to initialize state for workload
      */
     public final void init(DriverConfiguration params) throws WorkloadException {

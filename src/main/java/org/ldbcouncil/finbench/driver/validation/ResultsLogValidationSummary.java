@@ -3,6 +3,7 @@ package org.ldbcouncil.finbench.driver.validation;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
@@ -43,15 +44,15 @@ public class ResultsLogValidationSummary {
     }
 
     ResultsLogValidationSummary(
-        long excessiveDelayThresholdAsMilli,
-        long excessiveDelayCount,
-        Map<String, Long> excessiveDelayCountPerType,
-        long minDelayAsMilli,
-        long maxDelayAsMilli,
-        long meanDelayAsMilli,
-        Map<String, Long> minDelayAsMilliPerType,
-        Map<String, Long> maxDelayAsMilliPerType,
-        Map<String, Long> meanDelayAsMilliPerType) {
+            long excessiveDelayThresholdAsMilli,
+            long excessiveDelayCount,
+            Map<String, Long> excessiveDelayCountPerType,
+            long minDelayAsMilli,
+            long maxDelayAsMilli,
+            long meanDelayAsMilli,
+            Map<String, Long> minDelayAsMilliPerType,
+            Map<String, Long> maxDelayAsMilliPerType,
+            Map<String, Long> meanDelayAsMilliPerType) {
         this.excessiveDelayThresholdAsMilli = excessiveDelayThresholdAsMilli;
         this.excessiveDelayCount = excessiveDelayCount;
         this.excessiveDelayCountPerType = excessiveDelayCountPerType;
