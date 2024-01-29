@@ -1,5 +1,17 @@
 package org.ldbcouncil.finbench.driver.runtime;
 
+import static java.lang.String.format;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.ldbcouncil.finbench.driver.Db;
 import org.ldbcouncil.finbench.driver.WorkloadException;
 import org.ldbcouncil.finbench.driver.WorkloadStreams;
@@ -17,21 +29,9 @@ import org.ldbcouncil.finbench.driver.runtime.metrics.MetricsService;
 import org.ldbcouncil.finbench.driver.runtime.scheduling.Spinner;
 import org.ldbcouncil.finbench.driver.temporal.TimeSource;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static java.lang.String.format;
-
 public class WorkloadRunner {
-    static final long RUNNER_POLLING_INTERVAL_AS_MILLI = 500;
+    static final long RUNNER_POLLING_INTERVAL_AS_MILLI = 100;
+    static final long RUNNER_POLLING_INTERVAL_AS_MILLI_AUTOMATIC = 500;
     private static final CompletionTimeWriter DUMMY_COMPLETION_TIME_WRITER = new DummyCompletionTimeWriter();
 
     private final WorkloadRunnerFuture workloadRunnerFuture;
@@ -71,7 +71,7 @@ public class WorkloadRunner {
     }
 
     public ConcurrentErrorReporter getFuture(long milli) {
-        workloadRunnerFuture.startThread(milli);
+        workloadRunnerFuture.startThreadAutomatic(milli);
         return workloadRunnerFuture.errorReporter;
     }
 
@@ -129,15 +129,15 @@ public class WorkloadRunner {
             }
         }
 
-        private void startThread(long milli) {
+        private void startThreadAutomatic(long milli) {
             if (workloadRunnerThread.state().equals(WorkloadRunnerThreadState.NOT_STARTED)) {
                 workloadRunnerThread.start();
-                // 不能直接 sleep(milli)，因为若在此期间就执行完了，就会sleep多余的时间
-                // Thread.sleep(milli);
+                // You cannot sleep(milli) directly, because if the execution finishes in the meantime, you will
+                // sleep for extra time
 
                 AtomicBoolean expire = new AtomicBoolean(false);
                 Timer timer = new Timer();
-                while (!workloadRunnerThread.state().equals(WorkloadRunnerThreadState.RUNNING)) {
+                while (workloadRunnerThread.state().equals(WorkloadRunnerThreadState.NOT_STARTED)) {
                     Spinner.powerNap(RUNNER_POLLING_INTERVAL_AS_MILLI);
                 }
                 timer.schedule(new TimerTask() {
@@ -147,11 +147,10 @@ public class WorkloadRunner {
                     }
                 }, milli);
                 while (!expire.get() && workloadRunnerThread.state().equals(WorkloadRunnerThreadState.RUNNING)) {
-                    Spinner.powerNap(RUNNER_POLLING_INTERVAL_AS_MILLI);
+                    Spinner.powerNap(RUNNER_POLLING_INTERVAL_AS_MILLI_AUTOMATIC);
                 }
                 timer.cancel();
             }
-            // 停止线程
             if (isCancelled || isDone) {
                 throw new IllegalStateException("Can not call method after future has been cancelled or completed");
             }
@@ -299,11 +298,9 @@ public class WorkloadRunner {
             this.errorReporter = errorReporter;
             this.statusDisplayIntervalAsMilli = statusDisplayIntervalAsSeconds;
 
-            // 微调器，从中获得boolean值的结果，代替 Failed 操作
             this.spinner = new Spinner(timeSource, spinnerSleepDurationAsMilli, ignoreScheduleStartTimes);
 
             if (statusDisplayIntervalAsSeconds > 0) {
-                // workload状态线程，监控workload状态
                 this.workloadStatusThread = new WorkloadStatusThread(
                         TimeUnit.SECONDS.toMillis(statusDisplayIntervalAsSeconds),
                         metricsService.getWriter(),
@@ -323,7 +320,6 @@ public class WorkloadRunner {
             } catch (CompletionTimeException e) {
                 throw new WorkloadException("Error while attempting to create completion time writer", e);
             }
-            // 异步执行器线程池
             this.executorForAsynchronous = new ThreadPoolOperationExecutor(
                     threadCount,
                     operationHandlerExecutorsBoundedQueueSize,
@@ -337,7 +333,6 @@ public class WorkloadRunner {
                     metricsService,
                     asynchronousStream.childOperationGenerator()
             );
-            // 异步操作流执行器服务
             this.asynchronousStreamExecutorService = new OperationStreamExecutorService(
                     errorReporter,
                     asynchronousStream,

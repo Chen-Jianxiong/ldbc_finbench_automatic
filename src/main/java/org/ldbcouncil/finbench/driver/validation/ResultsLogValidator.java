@@ -45,7 +45,6 @@ public class ResultsLogValidator {
         }
 
         for (String operationType : summary.excessiveDelayCountPerType().keySet()) {
-            // 单独计算各个类型的可容忍延迟计数
             Long cnt = operationCountPerTypeMap.get(operationType);
             long allowedLateOperations = Math.round(
                     (cnt == null ? 0 : cnt) * tolerances.toleratedExcessiveDelayCountPercentage());
@@ -66,7 +65,7 @@ public class ResultsLogValidator {
     }
 
     /**
-     * validate方法自动化测试版
+     * validate Method Automation beta
      */
     public ResultsLogValidationResult validateAutomatic(
             ResultsLogValidationSummary summary,
@@ -81,7 +80,6 @@ public class ResultsLogValidator {
         }
 
         for (String operationType : summary.excessiveDelayCountPerType().keySet()) {
-            // 单独计算各个类型的可容忍延迟计数
             Long cnt = operationCountPerTypeMap.get(operationType);
             long allowedLateOperations = Math.round(
                     (cnt == null ? 0 : cnt) * tolerances.toleratedExcessiveDelayCountPercentage());
@@ -99,11 +97,11 @@ public class ResultsLogValidator {
 
         result.setThroughput(workloadResults.throughput());
         result.setOperationCount(workloadResults.totalOperationCount());
-        // 判断是否超时
+        // Determine whether time out
         if (summary.excessiveDelayCount() > tolerances.toleratedExcessiveDelayCount()) {
             result.aboveThreshold();
         }
-        // 计算及时率
+        // Calculated timeliness
         result.computeOnTimeRatio(summary.excessiveDelayCount());
         return result;
     }
@@ -119,7 +117,6 @@ public class ResultsLogValidator {
      */
     public ResultsLogValidationSummary compute(File resultsLog, long excessiveDelayThresholdAsMilli)
             throws ValidationException {
-        // 读取基准测试结果文件，计算最大延迟 max(实际开始时间 - 预计开始时间)
         long maxDelayAsMilli = maxDelayAsMilli(resultsLog);
         ResultsLogValidationSummaryCalculator calculator = new ResultsLogValidationSummaryCalculator(
                 maxDelayAsMilli,
@@ -139,7 +136,6 @@ public class ResultsLogValidator {
                 // duration
                 // result code
                 long delayAsMilli = actualStartTimeAsMilli - scheduledStartTimeAsMilli;
-                // 记录延迟（毫秒）到直方图，如果该次操作延迟超过阈值，则还会将此次操作记录在对应操作类型的直方图中，并计数
                 calculator.recordDelay(operationType, delayAsMilli);
             }
         } catch (FileNotFoundException e) {

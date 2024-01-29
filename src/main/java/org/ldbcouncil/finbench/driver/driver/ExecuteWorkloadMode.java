@@ -1,7 +1,21 @@
 package org.ldbcouncil.finbench.driver.driver;
 
+import static java.lang.String.format;
+
 import com.google.common.base.Charsets;
-import org.ldbcouncil.finbench.driver.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.TimeUnit;
+import org.ldbcouncil.finbench.driver.Db;
+import org.ldbcouncil.finbench.driver.DbException;
+import org.ldbcouncil.finbench.driver.Workload;
+import org.ldbcouncil.finbench.driver.WorkloadException;
+import org.ldbcouncil.finbench.driver.WorkloadStreams;
 import org.ldbcouncil.finbench.driver.control.ControlService;
 import org.ldbcouncil.finbench.driver.generator.GeneratorFactory;
 import org.ldbcouncil.finbench.driver.generator.RandomDataGeneratorFactory;
@@ -14,7 +28,15 @@ import org.ldbcouncil.finbench.driver.runtime.coordination.CompletionTimeExcepti
 import org.ldbcouncil.finbench.driver.runtime.coordination.CompletionTimeService;
 import org.ldbcouncil.finbench.driver.runtime.coordination.CompletionTimeServiceAssistant;
 import org.ldbcouncil.finbench.driver.runtime.coordination.CompletionTimeWriter;
-import org.ldbcouncil.finbench.driver.runtime.metrics.*;
+import org.ldbcouncil.finbench.driver.runtime.metrics.DisruptorSbeMetricsService;
+import org.ldbcouncil.finbench.driver.runtime.metrics.JsonWorkloadMetricsFormatter;
+import org.ldbcouncil.finbench.driver.runtime.metrics.MetricsCollectionException;
+import org.ldbcouncil.finbench.driver.runtime.metrics.MetricsManager;
+import org.ldbcouncil.finbench.driver.runtime.metrics.MetricsService;
+import org.ldbcouncil.finbench.driver.runtime.metrics.NullResultsLogWriter;
+import org.ldbcouncil.finbench.driver.runtime.metrics.ResultsLogWriter;
+import org.ldbcouncil.finbench.driver.runtime.metrics.WorkloadResultsSnapshot;
+import org.ldbcouncil.finbench.driver.runtime.metrics.WorkloadStatusSnapshot;
 import org.ldbcouncil.finbench.driver.temporal.TemporalUtil;
 import org.ldbcouncil.finbench.driver.temporal.TimeSource;
 import org.ldbcouncil.finbench.driver.util.ClassLoaderHelper;
@@ -23,17 +45,6 @@ import org.ldbcouncil.finbench.driver.validation.ResultsLogValidationResult;
 import org.ldbcouncil.finbench.driver.validation.ResultsLogValidationSummary;
 import org.ldbcouncil.finbench.driver.validation.ResultsLogValidationTolerances;
 import org.ldbcouncil.finbench.driver.validation.ResultsLogValidator;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.concurrent.TimeUnit;
-
-import static java.lang.String.format;
 
 public class ExecuteWorkloadMode implements DriverMode<Object> {
     private final ControlService controlService;
@@ -393,11 +404,10 @@ public class ExecuteWorkloadMode implements DriverMode<Object> {
                         format("Exporting workload results validation to: %s",
                             resultsValidationFile.getAbsolutePath())
                     );
-                    // 将验证结果输出到日志
-                    Files.write(
-                        resultsValidationFile.toPath(),
-                        resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
-                    );
+//                    Files.write(
+//                        resultsValidationFile.toPath(),
+//                        resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
+//                    );
                     // TODO export result
                     // 验证基准测试的结果
                     ResultsLogValidationResult validationResult = resultsLogValidator.validate(
@@ -409,10 +419,11 @@ public class ExecuteWorkloadMode implements DriverMode<Object> {
                     loggingService.info(validationResult.getScheduleAuditResult(
                         controlService.configuration().recordDelayedOperations()
                     ));
-//                    Files.write(
-//                        resultsValidationFile.toPath(),
-//                        resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
-//                    );
+                    // 将验证结果输出到日志
+                    Files.write(
+                        resultsValidationFile.toPath(),
+                        resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
+                    );
                 }
             }
         } catch (Exception e) {

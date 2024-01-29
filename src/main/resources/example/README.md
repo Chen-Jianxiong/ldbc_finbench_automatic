@@ -8,6 +8,7 @@ You can execute the driver with three modes, and you should update the mode in t
 - CREATE_VALIDATION
 - VALIDATE_DATABASE
 - EXECUTE_BENCHMARK
+- AUTOMATIC_TEST
 
 execute:
 ```

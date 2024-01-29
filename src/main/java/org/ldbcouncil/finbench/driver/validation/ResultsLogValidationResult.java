@@ -11,11 +11,8 @@ public class ResultsLogValidationResult {
     }
 
     private boolean aboveThreshold = false;
-    // 及时率
     private Double onTimeRatio;
-    // 吞吐量
     private Double throughput;
-    // 操作数
     private Long operationCount;
 
     public void computeOnTimeRatio(Long excessiveDelayCount) {

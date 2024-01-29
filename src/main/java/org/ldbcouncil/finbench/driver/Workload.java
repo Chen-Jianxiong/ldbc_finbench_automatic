@@ -1,9 +1,5 @@
 package org.ldbcouncil.finbench.driver;
 
-import org.ldbcouncil.finbench.driver.control.DriverConfiguration;
-import org.ldbcouncil.finbench.driver.generator.GeneratorFactory;
-import org.ldbcouncil.finbench.driver.validation.ResultsLogValidationTolerances;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -11,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.ldbcouncil.finbench.driver.control.DriverConfiguration;
+import org.ldbcouncil.finbench.driver.generator.GeneratorFactory;
+import org.ldbcouncil.finbench.driver.validation.ResultsLogValidationTolerances;
 
 public abstract class Workload implements Closeable {
     public static final long DEFAULT_MAXIMUM_EXPECTED_INTERLEAVE_AS_MILLI = TimeUnit.HOURS.toMillis(1);
@@ -29,31 +28,35 @@ public abstract class Workload implements Closeable {
      * @return
      */
     public ResultsLogValidationTolerances resultsLogValidationTolerances(
-        DriverConfiguration configuration,
-        boolean warmup
+            DriverConfiguration configuration,
+            boolean warmup
     ) {
         long excessiveDelayThresholdAsMilli = TimeUnit.SECONDS.toMillis(1);
-        double toleratedExcessiveDelayCountPercentage = 0.05; // 95% of the queries must run below delay threshold
+        // Specifies the fraction of the delay threshold that is allowed to be exceeded
+        double toleratedExcessiveDelayCountPercentage = configuration.timeoutRate();
         long toleratedExcessiveDelayCount = // Total tolerated excessive delay count
-            (warmup) ? Math.round(configuration.warmupCount() * toleratedExcessiveDelayCountPercentage)
-                : Math.round(configuration.operationCount() * toleratedExcessiveDelayCountPercentage);
+                (warmup) ? Math.round(configuration.warmupCount() * toleratedExcessiveDelayCountPercentage)
+                        : Math.round(configuration.operationCount() * toleratedExcessiveDelayCountPercentage);
         return new ResultsLogValidationTolerances(
-            excessiveDelayThresholdAsMilli,
-            toleratedExcessiveDelayCount,
-            toleratedExcessiveDelayCountPercentage
+                excessiveDelayThresholdAsMilli,
+                toleratedExcessiveDelayCount,
+                toleratedExcessiveDelayCountPercentage
         );
     }
 
     /**
-     * resultsLogValidationTolerances方法的自动化测试版
+     * resultsLogValidationTolerances Automated beta version of the method
+     *
      * @param operationCount
      * @return
      */
     public ResultsLogValidationTolerances resultsLogValidationTolerancesAutomatic(
+            DriverConfiguration configuration,
             long operationCount
     ) {
         long excessiveDelayThresholdAsMilli = TimeUnit.SECONDS.toMillis(1);
-        double toleratedExcessiveDelayCountPercentage = 0.05; // 95% of the queries must run below delay threshold
+        // Specifies the fraction of the delay threshold that is allowed to be exceeded
+        double toleratedExcessiveDelayCountPercentage = configuration.timeoutRate();
         // Total tolerated excessive delay count
         long toleratedExcessiveDelayCount = Math.round(operationCount * toleratedExcessiveDelayCountPercentage);
         return new ResultsLogValidationTolerances(
@@ -62,6 +65,7 @@ public abstract class Workload implements Closeable {
                 toleratedExcessiveDelayCountPercentage
         );
     }
+
     /**
      * Called once to initialize state for workload
      */
@@ -100,7 +104,7 @@ public abstract class Workload implements Closeable {
     }
 
     protected abstract WorkloadStreams getStreams(GeneratorFactory generators, boolean hasDbConnected)
-        throws WorkloadException;
+            throws WorkloadException;
 
     public DbValidationParametersFilter dbValidationParametersFilter(final Integer requiredValidationParameterCount) {
         return new DbValidationParametersFilter() {
@@ -114,18 +118,18 @@ public abstract class Workload implements Closeable {
 
             @Override
             public DbValidationParametersFilterResult useOperationAndResultForValidation(
-                Operation operation,
-                Object operationResult) {
+                    Operation operation,
+                    Object operationResult) {
                 if (validationParameterCount < requiredValidationParameterCount) {
                     validationParameterCount++;
                     return new DbValidationParametersFilterResult(
-                        DbValidationParametersFilterAcceptance.ACCEPT_AND_CONTINUE,
-                        injectedOperations
+                            DbValidationParametersFilterAcceptance.ACCEPT_AND_CONTINUE,
+                            injectedOperations
                     );
                 } else {
                     return new DbValidationParametersFilterResult(
-                        DbValidationParametersFilterAcceptance.REJECT_AND_FINISH,
-                        injectedOperations
+                            DbValidationParametersFilterAcceptance.REJECT_AND_FINISH,
+                            injectedOperations
                     );
                 }
             }
@@ -142,8 +146,8 @@ public abstract class Workload implements Closeable {
         boolean useOperation(Operation operation);
 
         DbValidationParametersFilterResult useOperationAndResultForValidation(
-            Operation operation,
-            Object operationResult);
+                Operation operation,
+                Object operationResult);
     }
 
     public enum DbValidationParametersFilterAcceptance {
@@ -158,8 +162,8 @@ public abstract class Workload implements Closeable {
         private final List<Operation> injectedOperations;
 
         public DbValidationParametersFilterResult(
-            DbValidationParametersFilterAcceptance acceptance,
-            List<Operation> injectedOperations) {
+                DbValidationParametersFilterAcceptance acceptance,
+                List<Operation> injectedOperations) {
             this.acceptance = acceptance;
             this.injectedOperations = injectedOperations;
         }

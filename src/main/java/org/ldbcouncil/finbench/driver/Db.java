@@ -21,20 +21,18 @@ public abstract class Db implements Closeable {
     private OperationHandlerRunnerFactory operationHandlerRunnableContextFactory = null;
 
     public final synchronized void init(
-        Map<String, String> params,
-        LoggingService loggingService,
-        Map<Integer, Class<? extends Operation>> operationTypeToClassMapping)
-        throws DbException {
+            Map<String, String> params,
+            LoggingService loggingService,
+            Map<Integer, Class<? extends Operation>> operationTypeToClassMapping)
+            throws DbException {
         if (isInitialized) {
             throw new DbException("DB may be initialized only once");
         }
         onInit(params, loggingService);
         dbConnectionState = getConnectionState();
-        // 实例化 操作处理程序可运行工厂池（初始大小512）
         operationHandlerRunnableContextFactory = new PoolingOperationHandlerRunnerFactory(
-            new InstantiatingOperationHandlerRunnerFactory()
+                new InstantiatingOperationHandlerRunnerFactory()
         );
-        // 根据操作类型代码获取操作类型数组
         operationHandlersArray = toOperationHandlerArray(operationTypeToClassMapping, operationHandlers);
         operationHandlers = null;
         isInitialized = true;
@@ -68,13 +66,13 @@ public abstract class Db implements Closeable {
             throw new DbException("Error shutting down operation handler runnable factory", e);
         }
         operationHandlerRunnableContextFactory = new PoolingOperationHandlerRunnerFactory(
-            new InstantiatingOperationHandlerRunnerFactory()
+                new InstantiatingOperationHandlerRunnerFactory()
         );
     }
 
-    public final synchronized void reInitTest() throws DbException {
+    public final synchronized void reInitAutomatic() throws DbException {
         try {
-            ((PoolingOperationHandlerRunnerFactory) operationHandlerRunnableContextFactory).shutdownTest();
+            ((PoolingOperationHandlerRunnerFactory) operationHandlerRunnableContextFactory).shutdownAutomatic();
         } catch (OperationException e) {
             throw new DbException("Error shutting down operation handler runnable factory", e);
         }
@@ -89,8 +87,7 @@ public abstract class Db implements Closeable {
     protected abstract void onClose() throws IOException;
 
     public final <A extends Operation, H extends OperationHandler<A, ?>> void registerOperationHandler(
-        Class<A> operationType, Class<H> operationHandlerType) throws DbException {
-        // 避免重复加载
+            Class<A> operationType, Class<H> operationHandlerType) throws DbException {
         if (operationHandlers.containsKey(operationType)) {
             throw new DbException(format("Client already has handler registered for %s", operationType.getClass()));
         }
@@ -99,23 +96,23 @@ public abstract class Db implements Closeable {
             operationHandlers.put(operationType, operationHandler);
         } catch (OperationException e) {
             throw new DbException(
-                format("%s could not instantiate instance of %s",
-                    getClass().getSimpleName(),
-                    operationHandlerType.getSimpleName()
-                ),
-                e);
+                    format("%s could not instantiate instance of %s",
+                            getClass().getSimpleName(),
+                            operationHandlerType.getSimpleName()
+                    ),
+                    e);
         }
     }
 
     public final OperationHandlerRunnableContext getOperationHandlerRunnableContext(Operation operation)
-        throws DbException {
+            throws DbException {
         OperationHandler operationHandler = operationHandlersArray[operation.type()];
         if (null == operationHandler) {
             throw new DbException(format("No handler registered for %s", operation.getClass()));
         }
         try {
             OperationHandlerRunnableContext operationHandlerRunnableContext =
-                operationHandlerRunnableContextFactory.newOperationHandlerRunner();
+                    operationHandlerRunnableContextFactory.newOperationHandlerRunner();
             operationHandlerRunnableContext.setOperationHandler(operationHandler);
             operationHandlerRunnableContext.setDbConnectionState(dbConnectionState);
             return operationHandlerRunnableContext;
@@ -125,10 +122,10 @@ public abstract class Db implements Closeable {
     }
 
     private static OperationHandler[] toOperationHandlerArray(
-        Map<Integer, Class<? extends Operation>> operationTypeToClassMapping,
-        Map<Class<? extends Operation>, OperationHandler> operationHandlers) throws DbException {
+            Map<Integer, Class<? extends Operation>> operationTypeToClassMapping,
+            Map<Class<? extends Operation>, OperationHandler> operationHandlers) throws DbException {
         if (operationTypeToClassMapping.isEmpty()) {
-            return new OperationHandler[] {};
+            return new OperationHandler[]{};
         } else {
             int minOperationType = Ordering.<Integer>natural().min(operationTypeToClassMapping.keySet());
             if (minOperationType < 0) {

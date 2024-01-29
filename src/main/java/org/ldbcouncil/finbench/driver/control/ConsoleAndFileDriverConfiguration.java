@@ -1,23 +1,9 @@
 package org.ldbcouncil.finbench.driver.control;
 
+import static java.lang.String.format;
+
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import org.apache.commons.cli.BasicParser;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.ldbcouncil.finbench.driver.driver.Driver;
-import org.ldbcouncil.finbench.driver.temporal.TemporalUtil;
-import org.ldbcouncil.finbench.driver.util.MapUtils;
-import org.ldbcouncil.finbench.driver.workloads.simple.SimpleWorkload;
-import org.ldbcouncil.finbench.driver.workloads.simple.db.SimpleDb;
-import org.ldbcouncil.finbench.driver.workloads.transaction.LdbcFinBenchTransactionWorkload;
-import org.ldbcouncil.finbench.driver.workloads.transaction.db.DummyLdbcFinBenchTransactionDb;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -35,8 +21,21 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import static java.lang.String.format;
+import org.apache.commons.cli.BasicParser;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionBuilder;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.ldbcouncil.finbench.driver.driver.Driver;
+import org.ldbcouncil.finbench.driver.temporal.TemporalUtil;
+import org.ldbcouncil.finbench.driver.util.MapUtils;
+import org.ldbcouncil.finbench.driver.workloads.simple.SimpleWorkload;
+import org.ldbcouncil.finbench.driver.workloads.simple.db.SimpleDb;
+import org.ldbcouncil.finbench.driver.workloads.transaction.LdbcFinBenchTransactionWorkload;
+import org.ldbcouncil.finbench.driver.workloads.transaction.db.DummyLdbcFinBenchTransactionDb;
 
 public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     // --- MODE ---
@@ -56,10 +55,12 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     // --- OPTIONAL ---
     public static final String IGNORE_SCHEDULED_START_TIMES_ARG = "ignore_scheduled_start_times";
     public static final boolean IGNORE_SCHEDULED_START_TIMES_DEFAULT = false;
-    public static final String IGNORE_SCHEDULED_START_TIMES_DEFAULT_STRING = Boolean.toString(IGNORE_SCHEDULED_START_TIMES_DEFAULT);
+    public static final String IGNORE_SCHEDULED_START_TIMES_DEFAULT_STRING =
+            Boolean.toString(IGNORE_SCHEDULED_START_TIMES_DEFAULT);
     public static final String RECORD_DELAYED_OPERATIONS_ARG = "log_delayed";
     public static final boolean RECORD_DELAYED_OPERATIONS_DEFAULT = true;
-    public static final String RECORD_DELAYED_OPERATIONS_DEFAULT_STRING = Boolean.toString(RECORD_DELAYED_OPERATIONS_DEFAULT);
+    public static final String RECORD_DELAYED_OPERATIONS_DEFAULT_STRING =
+            Boolean.toString(RECORD_DELAYED_OPERATIONS_DEFAULT);
     public static final String HELP_ARG = "help";
     public static final boolean HELP_DEFAULT = false;
     public static final String HELP_DEFAULT_STRING = Boolean.toString(HELP_DEFAULT);
@@ -86,7 +87,8 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     public static final String VALIDATION_PARAMS_SIZE_DEFAULT_STRING = Integer.toString(VALIDATION_PARAMS_SIZE_DEFAULT);
     public static final String VALIDATION_SERIALIZATION_CHECK_ARG = "vsc";
     public static final Boolean VALIDATION_SERIALIZATION_CHECK_DEFAULT = true;
-    public static final String VALIDATION_SERIALIZATION_CHECK_DEFAULT_STRING = Boolean.toString(VALIDATION_SERIALIZATION_CHECK_DEFAULT);
+    public static final String VALIDATION_SERIALIZATION_CHECK_DEFAULT_STRING =
+            Boolean.toString(VALIDATION_SERIALIZATION_CHECK_DEFAULT);
     public static final String TIME_UNIT_ARG = "tu";
     public static final TimeUnit TIME_UNIT_DEFAULT = TimeUnit.MILLISECONDS;
     public static final String TIME_UNIT_DEFAULT_STRING = TIME_UNIT_DEFAULT.toString();
@@ -105,69 +107,97 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     public static final String ESTIMATE_TEST_TIME_ARG = "ett";
     public static final long ESTIMATE_TEST_DEFAULT_TIME = 5 * 60 * 1000;
     public static final String ESTIMATE_TEST_DEFAULT_TIME_STRING = Long.toString(ESTIMATE_TEST_DEFAULT_TIME);
-    public static final String ESTIMATE_TEST_TIME_DESCRIPTION = format("快速预估阶段每次测试的时长，(默认是: %s)，如果是-1，" +
-                    "则完成 warmup 数量的操作就结束", ESTIMATE_TEST_DEFAULT_TIME_STRING);
+    public static final String ESTIMATE_TEST_TIME_DESCRIPTION = format(
+            "Quickly estimate the duration of each test in the phase (default: %s)."
+                    + "if -1, the operation to complete the number of warmup is finished", ESTIMATE_TEST_DEFAULT_TIME_STRING);
     public static final String ACCURATE_TEST_TIME_ARG = "att";
     public static final long ACCURATE_TEST_DEFAULT_TIME = 7200 * 1000;
     public static final String ACCURATE_TEST_DEFAULT_TIME_STRING = Long.toString(ACCURATE_TEST_DEFAULT_TIME);
-    public static final String ACCURATE_TEST_TIME_DESCRIPTION = format("精准调参阶段每次测试的时长，(默认是: %s)，如果是-1，" +
-                    "则完成 operation_count 数量的操作就结束", ACCURATE_TEST_DEFAULT_TIME_STRING);
+    public static final String ACCURATE_TEST_TIME_DESCRIPTION = format(
+            "The duration of each test in the precision tuning phase (default: %s)."
+                    + "If -1, the operation on the number of operation_count is completed",
+            ACCURATE_TEST_DEFAULT_TIME_STRING);
     public static final String DICHOTOMY_ERROR_RANGE_ARG = "der";
     public static final double DEFAULT_DICHOTOMY_ERROR_RANGE = 1E-5;
     public static final String DEFAULT_DICHOTOMY_ERROR_RANGE_STRING = Double.toString(DEFAULT_DICHOTOMY_ERROR_RANGE);
-    public static final String DICHOTOMY_ERROR_RANGE_DESCRIPTION = format("二分结束条件，容差范围，(默认是: %s)", DEFAULT_DICHOTOMY_ERROR_RANGE_STRING);
+    public static final String DICHOTOMY_ERROR_RANGE_DESCRIPTION = format(
+            "Binary end condition, tolerance range, (default: %s)", DEFAULT_DICHOTOMY_ERROR_RANGE_STRING);
     public static final String TCR_MIN_ARG = "tcrMin";
     public static final double DEFAULT_TCR_MIN = 1E-9;
     public static final String DEFAULT_TCR_MIN_STRING = Double.toString(DEFAULT_TCR_MIN);
-    public static final String TCR_MIN_DESCRIPTION = format("时间压缩比的最小值限制，(默认是: %s)", DEFAULT_TCR_MIN_STRING);
+    public static final String TCR_MIN_DESCRIPTION = format(
+            "Minimum time compression ratio limit (default: %s)", DEFAULT_TCR_MIN_STRING);
     public static final String TCR_MAX_ARG = "tcrMax";
     public static final double DEFAULT_TCR_MAX = 1;
     public static final String DEFAULT_TCR_MAX_STRING = Double.toString(DEFAULT_TCR_MAX);
-    public static final String TCR_MAX_DESCRIPTION = format("时间压缩比的最大值限制，(默认是: %s)", DEFAULT_TCR_MAX_STRING);
+    public static final String TCR_MAX_DESCRIPTION = format(
+            "Maximum time compression ratio limit (default: %s)", DEFAULT_TCR_MAX_STRING);
+    public static final String TIMEOUT_RATE_ARG = "timeoutRate";
+    public static final double DEFAULT_TIMEOUT_RATE = 0.05; // 95% of the queries must run below delay threshold
+    public static final String DEFAULT_TIMEOUT_RATE_STRING = Double.toString(DEFAULT_TIMEOUT_RATE);
+    public static final String TIMEOUT_RATE_DESCRIPTION = format(
+            "Specifies the fraction of the delay threshold that is allowed to be exceeded (default: %s)",
+            DEFAULT_TIMEOUT_RATE_STRING);
 
 
     public static final String PROPERTY_FILE_ARG = "P";
     public static final String PROPERTY_ARG = "p";
-    private static final String THREADS_DESCRIPTION = format("number of worker threads to execute with (default: %s)", THREADS_DEFAULT_STRING);
-    private static final String SKIP_COUNT_DESCRIPTION = format("number of operations to skip over before beginning execution (default: %s)", SKIP_COUNT_DEFAULT_STRING);
-    private static final String WARMUP_COUNT_DESCRIPTION = format("number of operations to execute during warmup phase (default: %s)", WARMUP_COUNT_DEFAULT_STRING);
+    private static final String THREADS_DESCRIPTION =
+            format("number of worker threads to execute with (default: %s)", THREADS_DEFAULT_STRING);
+    private static final String SKIP_COUNT_DESCRIPTION = format(
+            "number of operations to skip over before beginning execution (default: %s)", SKIP_COUNT_DEFAULT_STRING);
+    private static final String WARMUP_COUNT_DESCRIPTION =
+            format("number of operations to execute during warmup phase (default: %s)", WARMUP_COUNT_DEFAULT_STRING);
     private static final TemporalUtil TEMPORAL_UTIL = new TemporalUtil();
     private static final DecimalFormat INTEGRAL_FORMAT = new DecimalFormat("###,###,###,###,###");
     private static final DecimalFormat FLOAT_FORMAT = new DecimalFormat("###,###,###,###,##0.0000000");
     private static final String MODE_ARG_LONG = "mode";
-    private static final String MODE_DESCRIPTION = "mode the driver should execute (e.g. CREATE_VALIDATION, VALIDATE_DATABASE, CREATE_STATISTICS, " + "EXECUTE_BENCHMARK)";
+    private static final String MODE_DESCRIPTION =
+            "mode the driver should execute (e.g. CREATE_VALIDATION, VALIDATE_DATABASE, CREATE_STATISTICS, "
+                    + "EXECUTE_BENCHMARK)";
     private static final String OPERATION_COUNT_ARG_LONG = "operation_count";
     private static final String OPERATION_COUNT_DESCRIPTION = "number of operations to execute";
     private static final String WORKLOAD_ARG_LONG = "workload";
     private static final String WORKLOAD_EXAMPLE = SimpleWorkload.class.getName();
-    private static final String WORKLOAD_DESCRIPTION = format("class name of the Workload to use (e.g. %s)", WORKLOAD_EXAMPLE);
+    private static final String WORKLOAD_DESCRIPTION =
+            format("class name of the Workload to use (e.g. %s)", WORKLOAD_EXAMPLE);
     private static final String DB_ARG_LONG = "database";
     private static final String DB_EXAMPLE = SimpleDb.class.getName();
     private static final String DB_DESCRIPTION = format("class name of the DB to use (e.g. %s)", DB_EXAMPLE);
-    private static final String IGNORE_SCHEDULED_START_TIMES_DESCRIPTION = "executes operations as fast as possible, ignoring their scheduled start times";
+    private static final String IGNORE_SCHEDULED_START_TIMES_DESCRIPTION =
+            "executes operations as fast as possible, ignoring their scheduled start times";
     private static final String RECORD_DELAYED_OPERATIONS_DESCRIPTION = "print usage instruction";
     private static final String HELP_DESCRIPTION = "print usage instruction";
     private static final String FLUSH_LOG_DESCRIPTION = "flush log to disk after each operation";
     private static final String NAME_ARG_LONG = "name";
     private static final String NAME_DESCRIPTION = format("name of the benchmark run. default = %s", NAME_DEFAULT);
     private static final String RESULT_DIR_PATH_ARG_LONG = "results_dir";
-    private static final String RESULT_DIR_PATH_DESCRIPTION = format("directory where benchmark results will be written. default = %s", RESULT_DIR_PATH_DEFAULT);
+    private static final String RESULT_DIR_PATH_DESCRIPTION =
+            format("directory where benchmark results will be written. default = %s", RESULT_DIR_PATH_DEFAULT);
     private static final String THREADS_ARG_LONG = "thread_count";
     private static final String SHOW_STATUS_ARG_LONG = "status";
-    private static final String SHOW_STATUS_DESCRIPTION = "interval between status printouts during benchmark execution (0 = disable)";
+    private static final String SHOW_STATUS_DESCRIPTION =
+            "interval between status printouts during benchmark execution (0 = disable)";
     private static final String DB_VALIDATION_FILE_PATH_ARG_LONG = "validate_database";
-    private static final String DB_VALIDATION_FILE_PATH_DESCRIPTION = "path to validation parameters file, if provided database connector will be validated";
+    private static final String DB_VALIDATION_FILE_PATH_DESCRIPTION =
+            "path to validation parameters file, if provided database connector will be validated";
     private static final String VALIDATION_PARAMS_SIZE_ARG_LONG = "validation_parameters_size";
     private static final String VALIDATION_PARAMS_SIZE_DESCRIPTION = "The size of validation set to create.";
     private static final String VALIDATION_SERIALIZATION_CHECK_ARG_LONG = "validation_parameters_serialization_check";
-    private static final String VALIDATION_SERIALIZATION_CHECK_DESCRIPTION = "Check serialized queries and results by deserializing them and compare.";
+    private static final String VALIDATION_SERIALIZATION_CHECK_DESCRIPTION =
+            "Check serialized queries and results by deserializing them and compare.";
     private static final String TIME_UNIT_ARG_LONG = "time_unit";
-    private static final TimeUnit[] VALID_TIME_UNITS = new TimeUnit[]{TimeUnit.NANOSECONDS, TimeUnit.MICROSECONDS, TimeUnit.MILLISECONDS, TimeUnit.SECONDS, TimeUnit.MINUTES};
-    private static final String TIME_UNIT_DESCRIPTION = format("time unit to use when gathering metrics. default:%s, valid:%s", TIME_UNIT_DEFAULT_STRING, Arrays.toString(VALID_TIME_UNITS));
+    private static final TimeUnit[] VALID_TIME_UNITS =
+            new TimeUnit[]{TimeUnit.NANOSECONDS, TimeUnit.MICROSECONDS, TimeUnit.MILLISECONDS, TimeUnit.SECONDS,
+                    TimeUnit.MINUTES};
+    private static final String TIME_UNIT_DESCRIPTION =
+            format("time unit to use when gathering metrics. default:%s, valid:%s", TIME_UNIT_DEFAULT_STRING,
+                    Arrays.toString(VALID_TIME_UNITS));
     private static final String TIME_COMPRESSION_RATIO_ARG_LONG = "time_compression_ratio";
     private static final String TIME_COMPRESSION_RATIO_DESCRIPTION = "change duration between operations of workload";
     private static final String SPINNER_SLEEP_DURATION_ARG_LONG = "spinner_wait_duration";
-    private static final String SPINNER_SLEEP_DURATION_DESCRIPTION = "sleep duration (ms) injected into busy wait loops (to reduce CPU consumption)";
+    private static final String SPINNER_SLEEP_DURATION_DESCRIPTION =
+            "sleep duration (ms) injected into busy wait loops (to reduce CPU consumption)";
     private static final String SKIP_COUNT_ARG_LONG = "skip";
     private static final String WARMUP_COUNT_ARG_LONG = "warmup";
     public static final String ESTIMATE_TEST_TIME_ARG_LONG = "estimate";
@@ -175,8 +205,12 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     public static final String DICHOTOMY_ERROR_RANGE_ARG_LONG = "error_range";
     public static final String TCR_MIN_ARG_LONG = "tcr_min";
     public static final String TCR_MAX_ARG_LONG = "tcr_max";
-    private static final String PROPERTY_FILE_DESCRIPTION = "load properties from file(s) - files will be loaded in the order provided\n" + "first files are highest priority; later values will not override earlier values";
-    private static final String PROPERTY_DESCRIPTION = "properties to be passed to DB and Workload - these will override properties loaded from files";
+    public static final String TIMEOUT_RATE_ARG_LONG = "timeout_rate";
+    private static final String PROPERTY_FILE_DESCRIPTION =
+            "load properties from file(s) - files will be loaded in the order provided\n"
+                    + "first files are highest priority; later values will not override earlier values";
+    private static final String PROPERTY_DESCRIPTION =
+            "properties to be passed to DB and Workload - these will override properties loaded from files";
     private static final char COMMANDLINE_SEPARATOR_CHAR = '|';
     private static final Options OPTIONS = buildOptions();
     private final Map<String, String> paramsMap;
@@ -203,16 +237,37 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     private final long estimateTestTime;
     private final long accurateTestTime;
     private final double dichotomyErrorRange;
-    private final double tcrLeft;
-    private final double tcrRight;
+    private final double tcrMin;
+    private final double tcrMax;
+    private final double timeoutRate;
 
-    public ConsoleAndFileDriverConfiguration(Map<String, String> paramsMap, String mode, String name, String dbClassName
-            , String workloadClassName, long operationCount, int threadCount, int statusDisplayIntervalAsSeconds
-            , TimeUnit timeUnit, String resultDirPath, double timeCompressionRatio, int validationParametersSize
-            , boolean validationSerializationCheck, boolean recordDelayedOperations, String databaseValidationFilePath
-            , long spinnerSleepDurationAsMilli, boolean printHelp, boolean ignoreScheduledStartTimes, long warmupCount
-            , long skipCount, boolean flushLog, long estimateTestTime, long accurateTestTime, double dichotomyErrorRange
-            , double tcrLeft, double tcrRight) {
+    public ConsoleAndFileDriverConfiguration(Map<String, String> paramsMap,
+                                             String mode,
+                                             String name,
+                                             String dbClassName,
+                                             String workloadClassName,
+                                             long operationCount,
+                                             int threadCount,
+                                             int statusDisplayIntervalAsSeconds,
+                                             TimeUnit timeUnit,
+                                             String resultDirPath,
+                                             double timeCompressionRatio,
+                                             int validationParametersSize,
+                                             boolean validationSerializationCheck,
+                                             boolean recordDelayedOperations,
+                                             String databaseValidationFilePath,
+                                             long spinnerSleepDurationAsMilli,
+                                             boolean printHelp,
+                                             boolean ignoreScheduledStartTimes,
+                                             long warmupCount,
+                                             long skipCount,
+                                             boolean flushLog,
+                                             long estimateTestTime,
+                                             long accurateTestTime,
+                                             double dichotomyErrorRange,
+                                             double tcrMin,
+                                             double tcrMax,
+                                             double timeoutRate) {
         if (null == paramsMap) {
             paramsMap = new HashMap<>();
         }
@@ -240,8 +295,9 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         this.estimateTestTime = estimateTestTime;
         this.accurateTestTime = accurateTestTime;
         this.dichotomyErrorRange = dichotomyErrorRange;
-        this.tcrLeft = tcrLeft;
-        this.tcrRight = tcrRight;
+        this.tcrMin = tcrMin;
+        this.tcrMax = tcrMax;
+        this.timeoutRate = timeoutRate;
         if (null != mode) {
             paramsMap.put(MODE_ARG, mode);
         }
@@ -274,8 +330,9 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         paramsMap.put(ESTIMATE_TEST_TIME_ARG, Long.toString(estimateTestTime));
         paramsMap.put(ACCURATE_TEST_TIME_ARG, Long.toString(accurateTestTime));
         paramsMap.put(DICHOTOMY_ERROR_RANGE_ARG, Double.toString(dichotomyErrorRange));
-        paramsMap.put(TCR_MIN_ARG, Double.toString(tcrLeft));
-        paramsMap.put(TCR_MAX_ARG, Double.toString(tcrRight));
+        paramsMap.put(TCR_MIN_ARG, Double.toString(tcrMin));
+        paramsMap.put(TCR_MAX_ARG, Double.toString(tcrMax));
+        paramsMap.put(TIMEOUT_RATE_ARG, Double.toString(timeoutRate));
         // Validation specific
         if (null != databaseValidationFilePath) {
             paramsMap.put(DB_VALIDATION_FILE_PATH_ARG, databaseValidationFilePath);
@@ -313,6 +370,7 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         defaultParamsMap.put(DICHOTOMY_ERROR_RANGE_ARG, DEFAULT_DICHOTOMY_ERROR_RANGE_STRING);
         defaultParamsMap.put(TCR_MIN_ARG, DEFAULT_TCR_MIN_STRING);
         defaultParamsMap.put(TCR_MAX_ARG, DEFAULT_TCR_MAX_STRING);
+        defaultParamsMap.put(TIMEOUT_RATE_ARG, DEFAULT_TIMEOUT_RATE_STRING);
         return defaultParamsMap;
     }
 
@@ -356,7 +414,10 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         return missingParams;
     }
 
-    public static ConsoleAndFileDriverConfiguration fromDefaults(String databaseClassName, String workloadClassName, long operationCount) throws DriverConfigurationException {
+    public static ConsoleAndFileDriverConfiguration fromDefaults(String databaseClassName,
+                                                                 String workloadClassName,
+                                                                 long operationCount)
+            throws DriverConfigurationException {
         try {
             Map<String, String> paramsMap = defaultsAsMap();
             paramsMap.put(DB_ARG, databaseClassName);
@@ -368,7 +429,8 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         }
     }
 
-    public static ConsoleAndFileDriverConfiguration fromParamsMap(Map<String, String> paramsMap) throws DriverConfigurationException {
+    public static ConsoleAndFileDriverConfiguration fromParamsMap(Map<String, String> paramsMap)
+            throws DriverConfigurationException {
         try {
             paramsMap = convertComplexKeysToSimpleKeys(paramsMap);
 
@@ -388,7 +450,8 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
             String resultDirPath = paramsMap.get(RESULT_DIR_PATH_ARG);
             double timeCompressionRatio = Double.parseDouble(paramsMap.get(TIME_COMPRESSION_RATIO_ARG));
             int validationParametersSize = Integer.parseInt(paramsMap.get(VALIDATION_PARAMS_SIZE_ARG));
-            boolean validationSerializationCheck = Boolean.parseBoolean(paramsMap.get(VALIDATION_SERIALIZATION_CHECK_ARG));
+            boolean validationSerializationCheck =
+                    Boolean.parseBoolean(paramsMap.get(VALIDATION_SERIALIZATION_CHECK_ARG));
             String databaseValidationFilePath = paramsMap.get(DB_VALIDATION_FILE_PATH_ARG);
             long spinnerSleepDurationAsMilli = Long.parseLong(paramsMap.get(SPINNER_SLEEP_DURATION_ARG));
             long skipCount = Long.parseLong(paramsMap.get(SKIP_COUNT_ARG));
@@ -400,16 +463,16 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
             long estimateTestTime = Long.parseLong(paramsMap.get(ESTIMATE_TEST_TIME_ARG));
             long accurateTestTime = Long.parseLong(paramsMap.get(ACCURATE_TEST_TIME_ARG));
             double dichotomyErrorRange = Double.parseDouble(paramsMap.get(DICHOTOMY_ERROR_RANGE_ARG));
-            double tcrLeft = Double.parseDouble(paramsMap.get(TCR_MIN_ARG));
-            double tcrRight = Double.parseDouble(paramsMap.get(TCR_MAX_ARG));
-            // 这里因为没有配置 flush_log，因此 parseBoolean 会自动将 null转换为 false
+            double tcrMin = Double.parseDouble(paramsMap.get(TCR_MIN_ARG));
+            double tcrMax = Double.parseDouble(paramsMap.get(TCR_MAX_ARG));
+            double timeoutRate = Double.parseDouble(paramsMap.get(TIMEOUT_RATE_ARG));
             boolean flushLog = Boolean.parseBoolean(paramsMap.get(FLUSH_LOG_ARG));
-            return new ConsoleAndFileDriverConfiguration(paramsMap, mode, name, dbClassName, workloadClassName
-                    , operationCount, threadCount, statusDisplayIntervalAsSeconds, timeUnit, resultDirPath
-                    , timeCompressionRatio, validationParametersSize, validationSerializationCheck
-                    , recordDelayedOperations, databaseValidationFilePath, spinnerSleepDurationAsMilli
-                    , printHelp, ignoreScheduledStartTimes, warmupCount, skipCount, flushLog, estimateTestTime
-                    , accurateTestTime, dichotomyErrorRange, tcrLeft, tcrRight);
+            return new ConsoleAndFileDriverConfiguration(paramsMap, mode, name, dbClassName, workloadClassName,
+                    operationCount, threadCount, statusDisplayIntervalAsSeconds, timeUnit, resultDirPath,
+                    timeCompressionRatio, validationParametersSize, validationSerializationCheck,
+                    recordDelayedOperations, databaseValidationFilePath, spinnerSleepDurationAsMilli,
+                    printHelp, ignoreScheduledStartTimes, warmupCount, skipCount, flushLog, estimateTestTime,
+                    accurateTestTime, dichotomyErrorRange, tcrMin, tcrMax, timeoutRate);
         } catch (DriverConfigurationException e) {
             throw new DriverConfigurationException(format("%s\n%s", e.getMessage(), commandlineHelpString()), e);
         }
@@ -428,19 +491,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         }
     }
 
-    /**
-     * 读取配置参数，优先级：cmd直接指定 > -P 配置文件（按先后顺序）
-     *
-     * @param args
-     * @param options
-     * @return
-     * @throws ParseException
-     * @throws DriverConfigurationException
-     */
-    private static Map<String, String> parseArgs(String[] args, Options options) throws ParseException, DriverConfigurationException {
+    private static Map<String, String> parseArgs(String[] args,
+                                                 Options options)
+            throws ParseException, DriverConfigurationException {
         Map<String, String> cmdParams = new HashMap<>();
         Map<String, String> fileParams = new HashMap<>();
-        // 命令行分析器，将执行参数解析出来（-P）
         CommandLineParser parser = new BasicParser();
 
         CommandLine cmd = parser.parse(options, args);
@@ -525,36 +580,31 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         }
 
         if (cmd.hasOption(PROPERTY_FILE_ARG)) {
-            // 读取配置文件
             for (String propertyFilePath : cmd.getOptionValues(PROPERTY_FILE_ARG)) {
                 // code assumes ordering -> first files more important than last, first values get priority
                 try {
                     Properties tempFileProperties = new Properties();
                     tempFileProperties.load(new FileInputStream(propertyFilePath));
                     Map<String, String> tempFileParams = MapUtils.propertiesToMap(tempFileProperties);
-                    /*
-                     * 合并多个文件中的配置参数
-                     * 虽然此处设置的overwrite为true，但由于在调用mergeMaps()时，fileParams为新文件，因此结果还是类似不覆盖
-                     * 此处容易理解错误，如果在调用mergeMaps()时，tempFileParams与fileParams对调位置，overwrite设置为false，
-                     * 理解起来会更方便
-                     */
                     boolean overwrite = true;
-                    fileParams = MapUtils.mergeMaps(convertComplexKeysToSimpleKeys(tempFileParams), fileParams, overwrite);
+                    fileParams =
+                            MapUtils.mergeMaps(convertComplexKeysToSimpleKeys(tempFileParams), fileParams, overwrite);
                 } catch (IOException e) {
-                    throw new ParseException(format("Error loading properties file %s\n%s", propertyFilePath, e.getMessage()));
+                    throw new ParseException(
+                            format("Error loading properties file %s\n%s", propertyFilePath, e.getMessage()));
                 }
             }
         }
 
         if (cmd.hasOption(PROPERTY_ARG)) {
-            // 遍历所有选项，截取 -p 并存储到 cmdParams 中
-            for (Entry<Object, Object> cmdProperty : cmd.getOptionProperties(PROPERTY_ARG).entrySet()) {
+            for (Entry<Object, Object> cmdProperty : cmd.getOptionProperties(PROPERTY_ARG)
+                    .entrySet()) {
                 cmdParams.put((String) cmdProperty.getKey(), (String) cmdProperty.getValue());
             }
         }
-        // 配置参数以cmd优先
         boolean overwrite = true;
-        return MapUtils.mergeMaps(convertComplexKeysToSimpleKeys(fileParams), convertComplexKeysToSimpleKeys(cmdParams), overwrite);
+        return MapUtils.mergeMaps(convertComplexKeysToSimpleKeys(fileParams), convertComplexKeysToSimpleKeys(cmdParams),
+                overwrite);
     }
 
     public static Map<String, String> convertComplexKeysToSimpleKeys(Map<String, String> paramsMap) {
@@ -579,12 +629,15 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         paramsMap = replaceKey(paramsMap, DICHOTOMY_ERROR_RANGE_ARG_LONG, DICHOTOMY_ERROR_RANGE_ARG);
         paramsMap = replaceKey(paramsMap, TCR_MIN_ARG_LONG, TCR_MIN_ARG);
         paramsMap = replaceKey(paramsMap, TCR_MAX_ARG_LONG, TCR_MAX_ARG);
+        paramsMap = replaceKey(paramsMap, TIMEOUT_RATE_ARG_LONG, TIMEOUT_RATE_ARG);
         return paramsMap;
     }
 
     // NOTE: not safe in general case, no check for duplicate keys, i.e., if newKey already exists its value will be
     // overwritten
-    private static Map<String, String> replaceKey(Map<String, String> paramsMap, String oldKey, String newKey) {
+    private static Map<String, String> replaceKey(Map<String, String> paramsMap,
+                                                  String oldKey,
+                                                  String newKey) {
         if (!paramsMap.containsKey(oldKey)) {
             return paramsMap;
         }
@@ -600,89 +653,201 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         /*
          * Required
          */
-        Option modeOption = OptionBuilder.hasArgs(1).withArgName("mode").withDescription(MODE_DESCRIPTION).withLongOpt(MODE_ARG_LONG).create(MODE_ARG);
+        Option modeOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("mode")
+                        .withDescription(MODE_DESCRIPTION)
+                        .withLongOpt(MODE_ARG_LONG)
+                        .create(MODE_ARG);
         options.addOption(modeOption);
 
-        Option dbOption = OptionBuilder.hasArgs(1).withArgName("classname").withDescription(DB_DESCRIPTION).withLongOpt(DB_ARG_LONG).create(DB_ARG);
+        Option dbOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("classname")
+                        .withDescription(DB_DESCRIPTION)
+                        .withLongOpt(DB_ARG_LONG)
+                        .create(DB_ARG);
         options.addOption(dbOption);
 
-        Option workloadOption = OptionBuilder.hasArgs(1).withArgName("classname").withDescription(WORKLOAD_DESCRIPTION).withLongOpt(WORKLOAD_ARG_LONG).create(WORKLOAD_ARG);
+        Option workloadOption = OptionBuilder.hasArgs(1)
+                .withArgName("classname")
+                .withDescription(WORKLOAD_DESCRIPTION)
+                .withLongOpt(WORKLOAD_ARG_LONG)
+                .create(WORKLOAD_ARG);
         options.addOption(workloadOption);
 
-        Option operationCountOption = OptionBuilder.hasArgs(1).withArgName("count").withDescription(OPERATION_COUNT_DESCRIPTION).withLongOpt(OPERATION_COUNT_ARG_LONG).create(OPERATION_COUNT_ARG);
+        Option operationCountOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("count")
+                        .withDescription(OPERATION_COUNT_DESCRIPTION)
+                        .withLongOpt(OPERATION_COUNT_ARG_LONG)
+                        .create(OPERATION_COUNT_ARG);
         options.addOption(operationCountOption);
 
         /*
          * Optional
          */
-        Option nameOption = OptionBuilder.hasArgs(1).withArgName("name").withDescription(NAME_DESCRIPTION).withLongOpt(NAME_ARG_LONG).create(NAME_ARG);
+        Option nameOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("name")
+                        .withDescription(NAME_DESCRIPTION)
+                        .withLongOpt(NAME_ARG_LONG)
+                        .create(NAME_ARG);
         options.addOption(nameOption);
 
-        Option resultFileOption = OptionBuilder.hasArgs(1).withArgName("path").withDescription(RESULT_DIR_PATH_DESCRIPTION).withLongOpt(RESULT_DIR_PATH_ARG_LONG).create(RESULT_DIR_PATH_ARG);
+        Option resultFileOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("path")
+                        .withDescription(RESULT_DIR_PATH_DESCRIPTION)
+                        .withLongOpt(RESULT_DIR_PATH_ARG_LONG)
+                        .create(RESULT_DIR_PATH_ARG);
         options.addOption(resultFileOption);
 
-        Option threadsOption = OptionBuilder.hasArgs(1).withArgName("count").withDescription(THREADS_DESCRIPTION).withLongOpt(THREADS_ARG_LONG).create(THREADS_ARG);
+        Option threadsOption = OptionBuilder.hasArgs(1)
+                .withArgName("count")
+                .withDescription(THREADS_DESCRIPTION)
+                .withLongOpt(THREADS_ARG_LONG)
+                .create(THREADS_ARG);
         options.addOption(threadsOption);
 
-        Option statusOption = OptionBuilder.hasArgs(1).withArgName("seconds").withDescription(SHOW_STATUS_DESCRIPTION).withLongOpt(SHOW_STATUS_ARG_LONG).create(SHOW_STATUS_ARG);
+        Option statusOption = OptionBuilder.hasArgs(1)
+                .withArgName("seconds")
+                .withDescription(SHOW_STATUS_DESCRIPTION)
+                .withLongOpt(SHOW_STATUS_ARG_LONG)
+                .create(SHOW_STATUS_ARG);
         options.addOption(statusOption);
 
-        Option timeUnitOption = OptionBuilder.hasArgs(1).withArgName("unit").withDescription(TIME_UNIT_DESCRIPTION).withLongOpt(TIME_UNIT_ARG_LONG).create(TIME_UNIT_ARG);
+        Option timeUnitOption = OptionBuilder.hasArgs(1)
+                .withArgName("unit")
+                .withDescription(TIME_UNIT_DESCRIPTION)
+                .withLongOpt(TIME_UNIT_ARG_LONG)
+                .create(TIME_UNIT_ARG);
         options.addOption(timeUnitOption);
 
-        Option timeCompressionRatioOption = OptionBuilder.hasArgs(1).withArgName("ratio").withDescription(TIME_COMPRESSION_RATIO_DESCRIPTION).withLongOpt(TIME_COMPRESSION_RATIO_ARG_LONG).create(TIME_COMPRESSION_RATIO_ARG);
+        Option timeCompressionRatioOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("ratio")
+                        .withDescription(TIME_COMPRESSION_RATIO_DESCRIPTION)
+                        .withLongOpt(TIME_COMPRESSION_RATIO_ARG_LONG)
+                        .create(TIME_COMPRESSION_RATIO_ARG);
         options.addOption(timeCompressionRatioOption);
 
-        Option validationSerializationOption = OptionBuilder.withDescription(VALIDATION_SERIALIZATION_CHECK_DESCRIPTION).withLongOpt(VALIDATION_SERIALIZATION_CHECK_ARG_LONG).create(VALIDATION_SERIALIZATION_CHECK_ARG);
+        Option validationSerializationOption = OptionBuilder.withDescription(VALIDATION_SERIALIZATION_CHECK_DESCRIPTION)
+                .withLongOpt(VALIDATION_SERIALIZATION_CHECK_ARG_LONG)
+                .create(VALIDATION_SERIALIZATION_CHECK_ARG);
         options.addOption(validationSerializationOption);
 
-        Option validationParamsSizeOption = OptionBuilder.hasArgs(1).withArgName("count").withDescription(VALIDATION_PARAMS_SIZE_DESCRIPTION).withLongOpt(VALIDATION_PARAMS_SIZE_ARG_LONG).create(VALIDATION_PARAMS_SIZE_ARG);
+        Option validationParamsSizeOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("count")
+                        .withDescription(VALIDATION_PARAMS_SIZE_DESCRIPTION)
+                        .withLongOpt(VALIDATION_PARAMS_SIZE_ARG_LONG)
+                        .create(VALIDATION_PARAMS_SIZE_ARG);
         options.addOption(validationParamsSizeOption);
 
-        Option databaseValidationFilePathOption = OptionBuilder.hasArgs(1).withArgName("path").withDescription(DB_VALIDATION_FILE_PATH_DESCRIPTION).withLongOpt(DB_VALIDATION_FILE_PATH_ARG_LONG).create(DB_VALIDATION_FILE_PATH_ARG);
+        Option databaseValidationFilePathOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("path")
+                        .withDescription(DB_VALIDATION_FILE_PATH_DESCRIPTION)
+                        .withLongOpt(DB_VALIDATION_FILE_PATH_ARG_LONG)
+                        .create(DB_VALIDATION_FILE_PATH_ARG);
         options.addOption(databaseValidationFilePathOption);
 
-        Option recordDelayedOperations = OptionBuilder.withDescription(RECORD_DELAYED_OPERATIONS_DESCRIPTION).create(RECORD_DELAYED_OPERATIONS_ARG);
+        Option recordDelayedOperations =
+                OptionBuilder.withDescription(RECORD_DELAYED_OPERATIONS_DESCRIPTION)
+                        .create(RECORD_DELAYED_OPERATIONS_ARG);
         options.addOption(recordDelayedOperations);
 
-        Option spinnerSleepDurationOption = OptionBuilder.hasArgs(1).withArgName("duration").withDescription(SPINNER_SLEEP_DURATION_DESCRIPTION).withLongOpt(SPINNER_SLEEP_DURATION_ARG_LONG).create(SPINNER_SLEEP_DURATION_ARG);
+        Option spinnerSleepDurationOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("duration")
+                        .withDescription(SPINNER_SLEEP_DURATION_DESCRIPTION)
+                        .withLongOpt(SPINNER_SLEEP_DURATION_ARG_LONG)
+                        .create(SPINNER_SLEEP_DURATION_ARG);
         options.addOption(spinnerSleepDurationOption);
 
-        Option warmupCountOption = OptionBuilder.hasArgs(1).withArgName("count").withDescription(WARMUP_COUNT_DESCRIPTION).withLongOpt(WARMUP_COUNT_ARG_LONG).create(WARMUP_COUNT_ARG);
+        Option warmupCountOption =
+                OptionBuilder.hasArgs(1)
+                        .withArgName("count")
+                        .withDescription(WARMUP_COUNT_DESCRIPTION)
+                        .withLongOpt(WARMUP_COUNT_ARG_LONG)
+                        .create(WARMUP_COUNT_ARG);
         options.addOption(warmupCountOption);
 
-        Option skipCountOption = OptionBuilder.hasArgs(1).withArgName("count").withDescription(SKIP_COUNT_DESCRIPTION).withLongOpt(SKIP_COUNT_ARG_LONG).create(SKIP_COUNT_ARG);
+        Option skipCountOption = OptionBuilder.hasArgs(1)
+                .withArgName("count")
+                .withDescription(SKIP_COUNT_DESCRIPTION)
+                .withLongOpt(SKIP_COUNT_ARG_LONG)
+                .create(SKIP_COUNT_ARG);
         options.addOption(skipCountOption);
 
-        Option estimateTestTimeOption = OptionBuilder.hasArgs(1).withArgName("milli").withDescription(ESTIMATE_TEST_TIME_DESCRIPTION).withLongOpt(ESTIMATE_TEST_TIME_ARG_LONG).create(ESTIMATE_TEST_TIME_ARG);
+        Option estimateTestTimeOption = OptionBuilder.hasArgs(1)
+                .withArgName("milli")
+                .withDescription(ESTIMATE_TEST_TIME_DESCRIPTION)
+                .withLongOpt(ESTIMATE_TEST_TIME_ARG_LONG)
+                .create(ESTIMATE_TEST_TIME_ARG);
         options.addOption(estimateTestTimeOption);
 
-        Option accurateTestTimeOption = OptionBuilder.hasArgs(1).withArgName("milli").withDescription(ACCURATE_TEST_TIME_DESCRIPTION).withLongOpt(ACCURATE_TEST_TIME_ARG_LONG).create(ACCURATE_TEST_TIME_ARG);
+        Option accurateTestTimeOption = OptionBuilder.hasArgs(1)
+                .withArgName("milli")
+                .withDescription(ACCURATE_TEST_TIME_DESCRIPTION)
+                .withLongOpt(ACCURATE_TEST_TIME_ARG_LONG)
+                .create(ACCURATE_TEST_TIME_ARG);
         options.addOption(accurateTestTimeOption);
 
-        Option dichotomyErrorRangeOption = OptionBuilder.hasArgs(1).withArgName("error_range").withDescription(DICHOTOMY_ERROR_RANGE_DESCRIPTION).withLongOpt(DICHOTOMY_ERROR_RANGE_ARG_LONG).create(DICHOTOMY_ERROR_RANGE_ARG);
+        Option dichotomyErrorRangeOption = OptionBuilder.hasArgs(1)
+                .withArgName("error_range")
+                .withDescription(DICHOTOMY_ERROR_RANGE_DESCRIPTION)
+                .withLongOpt(DICHOTOMY_ERROR_RANGE_ARG_LONG)
+                .create(DICHOTOMY_ERROR_RANGE_ARG);
         options.addOption(dichotomyErrorRangeOption);
 
-        Option tcrLeftOption = OptionBuilder.hasArgs(1).withArgName("min").withDescription(TCR_MIN_DESCRIPTION).withLongOpt(TCR_MIN_ARG_LONG).create(TCR_MIN_ARG);
-        options.addOption(tcrLeftOption);
+        Option tcrMinOption = OptionBuilder.hasArgs(1)
+                .withArgName("min")
+                .withDescription(TCR_MIN_DESCRIPTION)
+                .withLongOpt(TCR_MIN_ARG_LONG)
+                .create(TCR_MIN_ARG);
+        options.addOption(tcrMinOption);
 
-        Option tcrRighOption = OptionBuilder.hasArgs(1).withArgName("max").withDescription(TCR_MAX_DESCRIPTION).withLongOpt(TCR_MAX_ARG_LONG).create(TCR_MAX_ARG);
-        options.addOption(tcrRighOption);
+        Option tcrMaxOption = OptionBuilder.hasArgs(1)
+                .withArgName("max")
+                .withDescription(TCR_MAX_DESCRIPTION)
+                .withLongOpt(TCR_MAX_ARG_LONG)
+                .create(TCR_MAX_ARG);
+        options.addOption(tcrMaxOption);
 
-        Option printHelpOption = OptionBuilder.withDescription(HELP_DESCRIPTION).create(HELP_ARG);
+        Option timeoutRateOption = OptionBuilder.hasArgs(1)
+                .withArgName("timeout")
+                .withDescription(TIMEOUT_RATE_DESCRIPTION)
+                .withLongOpt(TIMEOUT_RATE_ARG_LONG)
+                .create(TIMEOUT_RATE_ARG);
+        options.addOption(timeoutRateOption);
+
+        Option printHelpOption = OptionBuilder.withDescription(HELP_DESCRIPTION)
+                .create(HELP_ARG);
         options.addOption(printHelpOption);
 
 
-        Option flushOption = OptionBuilder.withDescription(FLUSH_LOG_DESCRIPTION).create(FLUSH_LOG_ARG);
+        Option flushOption = OptionBuilder.withDescription(FLUSH_LOG_DESCRIPTION)
+                .create(FLUSH_LOG_ARG);
         options.addOption(flushOption);
 
-        Option ignoreScheduledStartTimesOption = OptionBuilder.withDescription(IGNORE_SCHEDULED_START_TIMES_DESCRIPTION).create(IGNORE_SCHEDULED_START_TIMES_ARG);
+        Option ignoreScheduledStartTimesOption = OptionBuilder.withDescription(IGNORE_SCHEDULED_START_TIMES_DESCRIPTION)
+                .create(IGNORE_SCHEDULED_START_TIMES_ARG);
         options.addOption(ignoreScheduledStartTimesOption);
 
-        Option propertyFileOption = OptionBuilder.hasArgs().withValueSeparator(COMMANDLINE_SEPARATOR_CHAR).withArgName("file1" + COMMANDLINE_SEPARATOR_CHAR + "file2").withDescription(PROPERTY_FILE_DESCRIPTION).create(PROPERTY_FILE_ARG);
+        Option propertyFileOption = OptionBuilder.hasArgs()
+                .withValueSeparator(COMMANDLINE_SEPARATOR_CHAR)
+                .withArgName("file1" + COMMANDLINE_SEPARATOR_CHAR + "file2")
+                .withDescription(PROPERTY_FILE_DESCRIPTION)
+                .create(PROPERTY_FILE_ARG);
         options.addOption(propertyFileOption);
 
-        Option propertyOption = OptionBuilder.hasArgs(2).withValueSeparator(COMMANDLINE_SEPARATOR_CHAR).withArgName("key" + COMMANDLINE_SEPARATOR_CHAR + "value").withDescription(PROPERTY_DESCRIPTION).create(PROPERTY_ARG);
+        Option propertyOption = OptionBuilder.hasArgs(2)
+                .withValueSeparator(COMMANDLINE_SEPARATOR_CHAR)
+                .withArgName("key" + COMMANDLINE_SEPARATOR_CHAR + "value")
+                .withDescription(PROPERTY_DESCRIPTION)
+                .create(PROPERTY_ARG);
         options.addOption(propertyOption);
 
         return options;
@@ -694,7 +859,11 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
      * @return
      */
     private static Set<String> coreConfigurationParameterKeys() {
-        return Sets.newHashSet(MODE_ARG, NAME_ARG, DB_ARG, WORKLOAD_ARG, OPERATION_COUNT_ARG, THREADS_ARG, SHOW_STATUS_ARG, TIME_UNIT_ARG, RESULT_DIR_PATH_ARG, TIME_COMPRESSION_RATIO_ARG, VALIDATION_PARAMS_SIZE_ARG, VALIDATION_SERIALIZATION_CHECK_ARG, DB_VALIDATION_FILE_PATH_ARG, SPINNER_SLEEP_DURATION_ARG, HELP_ARG, IGNORE_SCHEDULED_START_TIMES_ARG, WARMUP_COUNT_ARG, SKIP_COUNT_ARG);
+        return Sets.newHashSet(MODE_ARG, NAME_ARG, DB_ARG, WORKLOAD_ARG, OPERATION_COUNT_ARG, THREADS_ARG,
+                SHOW_STATUS_ARG, TIME_UNIT_ARG, RESULT_DIR_PATH_ARG, TIME_COMPRESSION_RATIO_ARG,
+                VALIDATION_PARAMS_SIZE_ARG,
+                VALIDATION_SERIALIZATION_CHECK_ARG, DB_VALIDATION_FILE_PATH_ARG, SPINNER_SLEEP_DURATION_ARG, HELP_ARG,
+                IGNORE_SCHEDULED_START_TIMES_ARG, WARMUP_COUNT_ARG, SKIP_COUNT_ARG);
     }
 
     /**
@@ -714,7 +883,8 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
         PrintWriter writer = new PrintWriter(os);
         HelpFormatter helpFormatter = new HelpFormatter();
-        helpFormatter.printHelp(writer, printedRowWidth, commandLineSyntax, header, options, spacesBeforeOption, spacesBeforeOptionDescription, footer, displayUsage);
+        helpFormatter.printHelp(writer, printedRowWidth, commandLineSyntax, header, options, spacesBeforeOption,
+                spacesBeforeOptionDescription, footer, displayUsage);
         writer.flush();
         writer.close();
         return os.toString();
@@ -860,13 +1030,18 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     }
 
     @Override
-    public double tcrLeft() {
-        return tcrLeft;
+    public double tcrMin() {
+        return tcrMin;
     }
 
     @Override
-    public double tcrRight() {
-        return tcrRight;
+    public double tcrMax() {
+        return tcrMax;
+    }
+
+    @Override
+    public double timeoutRate() {
+        return timeoutRate;
     }
 
     @Override
@@ -897,45 +1072,85 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         Map<String, String> newParamsMapWithSimpleKeys = convertComplexKeysToSimpleKeys(newParamsMap);
         Map<String, String> newOtherParams = MapUtils.mergeMaps(this.paramsMap, newParamsMapWithSimpleKeys, true);
 
-        String newMode = (newParamsMapWithSimpleKeys.containsKey(MODE_ARG)) ? newParamsMapWithSimpleKeys.get(MODE_ARG) : mode;
+        String newMode =
+                (newParamsMapWithSimpleKeys.containsKey(MODE_ARG)) ? newParamsMapWithSimpleKeys.get(MODE_ARG) : mode;
 
-        String newName = (newParamsMapWithSimpleKeys.containsKey(NAME_ARG)) ? newParamsMapWithSimpleKeys.get(NAME_ARG) : name;
-        String newDbClassName = (newParamsMapWithSimpleKeys.containsKey(DB_ARG)) ? newParamsMapWithSimpleKeys.get(DB_ARG) : dbClassName;
-        String newWorkloadClassName = (newParamsMapWithSimpleKeys.containsKey(WORKLOAD_ARG)) ? newParamsMapWithSimpleKeys.get(WORKLOAD_ARG) : workloadClassName;
-        long newOperationCount = (newParamsMapWithSimpleKeys.containsKey(OPERATION_COUNT_ARG)) ? Long.parseLong(newParamsMapWithSimpleKeys.get(OPERATION_COUNT_ARG)) : operationCount;
-        int newThreadCount = (newParamsMapWithSimpleKeys.containsKey(THREADS_ARG)) ? Integer.parseInt(newParamsMapWithSimpleKeys.get(THREADS_ARG)) : threadCount;
-        int newStatusDisplayIntervalAsSeconds = (newParamsMapWithSimpleKeys.containsKey(SHOW_STATUS_ARG)) ? Integer.parseInt(newParamsMapWithSimpleKeys.get(SHOW_STATUS_ARG)) : statusDisplayIntervalAsSeconds;
-        TimeUnit newTimeUnit = (newParamsMapWithSimpleKeys.containsKey(TIME_UNIT_ARG)) ? TimeUnit.valueOf(newParamsMapWithSimpleKeys.get(TIME_UNIT_ARG)) : timeUnit;
-        String newResultDirPath = (newParamsMapWithSimpleKeys.containsKey(RESULT_DIR_PATH_ARG)) ? newParamsMapWithSimpleKeys.get(RESULT_DIR_PATH_ARG) : resultDirPath;
-        double newTimeCompressionRatio = (newParamsMapWithSimpleKeys.containsKey(TIME_COMPRESSION_RATIO_ARG)) ? Double.parseDouble(newParamsMapWithSimpleKeys.get(TIME_COMPRESSION_RATIO_ARG)) : timeCompressionRatio;
+        String newName =
+                (newParamsMapWithSimpleKeys.containsKey(NAME_ARG)) ? newParamsMapWithSimpleKeys.get(NAME_ARG) : name;
+        String newDbClassName =
+                (newParamsMapWithSimpleKeys.containsKey(DB_ARG)) ? newParamsMapWithSimpleKeys.get(DB_ARG) : dbClassName;
+        String newWorkloadClassName =
+                (newParamsMapWithSimpleKeys.containsKey(WORKLOAD_ARG)) ? newParamsMapWithSimpleKeys.get(WORKLOAD_ARG)
+                        : workloadClassName;
+        long newOperationCount = (newParamsMapWithSimpleKeys.containsKey(OPERATION_COUNT_ARG)) ? Long.parseLong(
+                newParamsMapWithSimpleKeys.get(OPERATION_COUNT_ARG)) : operationCount;
+        int newThreadCount = (newParamsMapWithSimpleKeys.containsKey(THREADS_ARG)) ? Integer.parseInt(
+                newParamsMapWithSimpleKeys.get(THREADS_ARG)) : threadCount;
+        int newStatusDisplayIntervalAsSeconds =
+                (newParamsMapWithSimpleKeys.containsKey(SHOW_STATUS_ARG)) ? Integer.parseInt(
+                        newParamsMapWithSimpleKeys.get(SHOW_STATUS_ARG)) : statusDisplayIntervalAsSeconds;
+        TimeUnit newTimeUnit = (newParamsMapWithSimpleKeys.containsKey(TIME_UNIT_ARG)) ? TimeUnit.valueOf(
+                newParamsMapWithSimpleKeys.get(TIME_UNIT_ARG)) : timeUnit;
+        String newResultDirPath =
+                (newParamsMapWithSimpleKeys.containsKey(RESULT_DIR_PATH_ARG)) ? newParamsMapWithSimpleKeys.get(
+                        RESULT_DIR_PATH_ARG) : resultDirPath;
+        double newTimeCompressionRatio =
+                (newParamsMapWithSimpleKeys.containsKey(TIME_COMPRESSION_RATIO_ARG)) ? Double.parseDouble(
+                        newParamsMapWithSimpleKeys.get(TIME_COMPRESSION_RATIO_ARG)) : timeCompressionRatio;
 
-        int newValidationParametersSize = (newParamsMapWithSimpleKeys.containsKey(VALIDATION_PARAMS_SIZE_ARG)) ? Integer.parseInt(newParamsMapWithSimpleKeys.get(VALIDATION_PARAMS_SIZE_ARG)) : validationParametersSize;
+        int newValidationParametersSize =
+                (newParamsMapWithSimpleKeys.containsKey(VALIDATION_PARAMS_SIZE_ARG)) ? Integer.parseInt(
+                        newParamsMapWithSimpleKeys.get(VALIDATION_PARAMS_SIZE_ARG)) : validationParametersSize;
 
-        boolean newValidationSerializationCheck = (newParamsMapWithSimpleKeys.containsKey(VALIDATION_SERIALIZATION_CHECK_ARG)) ? Boolean.parseBoolean(newParamsMapWithSimpleKeys.get(VALIDATION_SERIALIZATION_CHECK_ARG)) : validationSerializationCheck;
+        boolean newValidationSerializationCheck =
+                (newParamsMapWithSimpleKeys.containsKey(VALIDATION_SERIALIZATION_CHECK_ARG)) ? Boolean.parseBoolean(
+                        newParamsMapWithSimpleKeys.get(VALIDATION_SERIALIZATION_CHECK_ARG)) :
+                        validationSerializationCheck;
 
-        String newDatabaseValidationFilePath = (newParamsMapWithSimpleKeys.containsKey(DB_VALIDATION_FILE_PATH_ARG)) ? newParamsMapWithSimpleKeys.get(DB_VALIDATION_FILE_PATH_ARG) : databaseValidationFilePath;
-        long newSpinnerSleepDurationAsMilli = (newParamsMapWithSimpleKeys.containsKey(SPINNER_SLEEP_DURATION_ARG)) ? Long.parseLong((newParamsMapWithSimpleKeys.get(SPINNER_SLEEP_DURATION_ARG))) : spinnerSleepDurationAsMilli;
-        boolean newPrintHelp = (newParamsMapWithSimpleKeys.containsKey(HELP_ARG)) ? Boolean.parseBoolean(newParamsMapWithSimpleKeys.get(HELP_ARG)) : printHelp;
-        boolean newRecordDelayedOperations = (newParamsMapWithSimpleKeys.containsKey(RECORD_DELAYED_OPERATIONS_ARG)) ? Boolean.parseBoolean(newParamsMapWithSimpleKeys.get(RECORD_DELAYED_OPERATIONS_ARG)) : recordDelayedOperations;
+        String newDatabaseValidationFilePath =
+                (newParamsMapWithSimpleKeys.containsKey(DB_VALIDATION_FILE_PATH_ARG)) ? newParamsMapWithSimpleKeys.get(
+                        DB_VALIDATION_FILE_PATH_ARG) : databaseValidationFilePath;
+        long newSpinnerSleepDurationAsMilli =
+                (newParamsMapWithSimpleKeys.containsKey(SPINNER_SLEEP_DURATION_ARG)) ? Long.parseLong(
+                        (newParamsMapWithSimpleKeys.get(SPINNER_SLEEP_DURATION_ARG))) : spinnerSleepDurationAsMilli;
+        boolean newPrintHelp = (newParamsMapWithSimpleKeys.containsKey(HELP_ARG)) ? Boolean.parseBoolean(
+                newParamsMapWithSimpleKeys.get(HELP_ARG)) : printHelp;
+        boolean newRecordDelayedOperations =
+                (newParamsMapWithSimpleKeys.containsKey(RECORD_DELAYED_OPERATIONS_ARG)) ? Boolean.parseBoolean(
+                        newParamsMapWithSimpleKeys.get(RECORD_DELAYED_OPERATIONS_ARG)) : recordDelayedOperations;
 
-        boolean newIgnoreScheduledStartTimes = (newParamsMapWithSimpleKeys.containsKey(IGNORE_SCHEDULED_START_TIMES_ARG)) ? Boolean.parseBoolean(newParamsMapWithSimpleKeys.get(IGNORE_SCHEDULED_START_TIMES_ARG)) : ignoreScheduledStartTimes;
-        long newWarmupCount = (newParamsMapWithSimpleKeys.containsKey(WARMUP_COUNT_ARG)) ? Long.parseLong(newParamsMapWithSimpleKeys.get(WARMUP_COUNT_ARG)) : warmupCount;
-        long newSkipCount = (newParamsMapWithSimpleKeys.containsKey(SKIP_COUNT_ARG)) ? Long.parseLong(newParamsMapWithSimpleKeys.get(SKIP_COUNT_ARG)) : skipCount;
-        boolean newFlushLog = (newParamsMapWithSimpleKeys.containsKey(FLUSH_LOG_ARG)) ? Boolean.parseBoolean(newParamsMapWithSimpleKeys.get(FLUSH_LOG_ARG)) : flushLog;
+        boolean newIgnoreScheduledStartTimes =
+                (newParamsMapWithSimpleKeys.containsKey(IGNORE_SCHEDULED_START_TIMES_ARG)) ? Boolean.parseBoolean(
+                        newParamsMapWithSimpleKeys.get(IGNORE_SCHEDULED_START_TIMES_ARG)) : ignoreScheduledStartTimes;
+        long newWarmupCount = (newParamsMapWithSimpleKeys.containsKey(WARMUP_COUNT_ARG)) ? Long.parseLong(
+                newParamsMapWithSimpleKeys.get(WARMUP_COUNT_ARG)) : warmupCount;
+        long newSkipCount = (newParamsMapWithSimpleKeys.containsKey(SKIP_COUNT_ARG)) ? Long.parseLong(
+                newParamsMapWithSimpleKeys.get(SKIP_COUNT_ARG)) : skipCount;
+        boolean newFlushLog = (newParamsMapWithSimpleKeys.containsKey(FLUSH_LOG_ARG)) ? Boolean.parseBoolean(
+                newParamsMapWithSimpleKeys.get(FLUSH_LOG_ARG)) : flushLog;
 
-        long newEstimateTestTime = (newParamsMapWithSimpleKeys.containsKey(ESTIMATE_TEST_TIME_ARG)) ? Long.parseLong(paramsMap.get(ESTIMATE_TEST_TIME_ARG)) : estimateTestTime;
-        long newAccurateTestTime = (newParamsMapWithSimpleKeys.containsKey(ACCURATE_TEST_TIME_ARG)) ? Long.parseLong(paramsMap.get(ACCURATE_TEST_TIME_ARG)) : accurateTestTime;
-        double newDichotomyErrorRange = (newParamsMapWithSimpleKeys.containsKey(DICHOTOMY_ERROR_RANGE_ARG)) ? Double.parseDouble(paramsMap.get(DICHOTOMY_ERROR_RANGE_ARG)) : dichotomyErrorRange;
-        double newTcrLeft = (newParamsMapWithSimpleKeys.containsKey(TCR_MIN_ARG)) ? Double.parseDouble(paramsMap.get(TCR_MIN_ARG)) : tcrLeft;
-        double newTcrRight = (newParamsMapWithSimpleKeys.containsKey(TCR_MAX_ARG)) ? Double.parseDouble(paramsMap.get(TCR_MAX_ARG)) : tcrRight;
+        long newEstimateTestTime = (newParamsMapWithSimpleKeys.containsKey(ESTIMATE_TEST_TIME_ARG))
+                ? Long.parseLong(paramsMap.get(ESTIMATE_TEST_TIME_ARG)) : estimateTestTime;
+        long newAccurateTestTime = (newParamsMapWithSimpleKeys.containsKey(ACCURATE_TEST_TIME_ARG))
+                ? Long.parseLong(paramsMap.get(ACCURATE_TEST_TIME_ARG)) : accurateTestTime;
+        double newDichotomyErrorRange = (newParamsMapWithSimpleKeys.containsKey(DICHOTOMY_ERROR_RANGE_ARG))
+                ? Double.parseDouble(paramsMap.get(DICHOTOMY_ERROR_RANGE_ARG)) : dichotomyErrorRange;
+        double newTcrMin =
+                (newParamsMapWithSimpleKeys.containsKey(TCR_MIN_ARG)) ? Double.parseDouble(paramsMap.get(TCR_MIN_ARG))
+                        : tcrMin;
+        double newTcrMax =
+                (newParamsMapWithSimpleKeys.containsKey(TCR_MAX_ARG))? Double.parseDouble(paramsMap.get(TCR_MAX_ARG))
+                        : tcrMax;
+        double newTimeoutRate = (newParamsMapWithSimpleKeys.containsKey(TIMEOUT_RATE_ARG))
+                ? Double.parseDouble(paramsMap.get(TIMEOUT_RATE_ARG))
+                : timeoutRate;
 
-        return new ConsoleAndFileDriverConfiguration(newOtherParams, newMode, newName, newDbClassName
-                , newWorkloadClassName, newOperationCount, newThreadCount, newStatusDisplayIntervalAsSeconds
-                , newTimeUnit, newResultDirPath, newTimeCompressionRatio, newValidationParametersSize
-                , newValidationSerializationCheck, newRecordDelayedOperations, newDatabaseValidationFilePath
-                , newSpinnerSleepDurationAsMilli, newPrintHelp, newIgnoreScheduledStartTimes, newWarmupCount
-                , newSkipCount, newFlushLog, newEstimateTestTime, newAccurateTestTime, newDichotomyErrorRange
-                , newTcrLeft, newTcrRight);
+        return new ConsoleAndFileDriverConfiguration(newOtherParams, newMode, newName, newDbClassName,
+                newWorkloadClassName, newOperationCount, newThreadCount, newStatusDisplayIntervalAsSeconds, newTimeUnit,
+                newResultDirPath, newTimeCompressionRatio, newValidationParametersSize, newValidationSerializationCheck,
+                newRecordDelayedOperations, newDatabaseValidationFilePath, newSpinnerSleepDurationAsMilli, newPrintHelp,
+                newIgnoreScheduledStartTimes, newWarmupCount, newSkipCount, newFlushLog, newEstimateTestTime,
+                newAccurateTestTime, newDichotomyErrorRange, newTcrMin, newTcrMax, newTimeoutRate);
     }
 
     /**
@@ -944,7 +1159,8 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
      * New instance contains all fields that original configuration instance contained.
      * New instance will contain additional fields if the new parameter introduced one.
      */
-    public DriverConfiguration applyArg(String argument, String newValue) throws DriverConfigurationException {
+    public DriverConfiguration applyArg(String argument,
+                                        String newValue) throws DriverConfigurationException {
         Map<String, String> newParamsMap = new HashMap<>();
         newParamsMap.put(argument, newValue);
         return applyArgs(newParamsMap);
@@ -979,13 +1195,15 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         argsList.addAll(Lists.newArrayList("-" + TIME_COMPRESSION_RATIO_ARG, Double.toString(timeCompressionRatio)));
 
         if (!validationSerializationCheck) {
-            argsList.addAll(Lists.newArrayList("-" + VALIDATION_SERIALIZATION_CHECK_ARG, Boolean.toString(validationSerializationCheck)));
+            argsList.addAll(Lists.newArrayList("-" + VALIDATION_SERIALIZATION_CHECK_ARG,
+                    Boolean.toString(validationSerializationCheck)));
         }
         if (null != databaseValidationFilePath) {
             argsList.addAll(Lists.newArrayList("-" + DB_VALIDATION_FILE_PATH_ARG, databaseValidationFilePath));
         }
 
-        argsList.addAll(Lists.newArrayList("-" + SPINNER_SLEEP_DURATION_ARG, Long.toString(spinnerSleepDurationAsMilli)));
+        argsList.addAll(
+                Lists.newArrayList("-" + SPINNER_SLEEP_DURATION_ARG, Long.toString(spinnerSleepDurationAsMilli)));
         if (printHelp) {
             argsList.add("-" + HELP_ARG);
         }
@@ -993,7 +1211,8 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
             argsList.add("-" + IGNORE_SCHEDULED_START_TIMES_ARG);
         }
         // additional, workload/database-related params
-        Map<String, String> additionalParameters = MapUtils.copyExcludingKeys(paramsMap, coreConfigurationParameterKeys());
+        Map<String, String> additionalParameters =
+                MapUtils.copyExcludingKeys(paramsMap, coreConfigurationParameterKeys());
         for (Entry<String, String> additionalParam : MapUtils.sortedEntrySet(additionalParameters)) {
             argsList.addAll(Lists.newArrayList("-p", additionalParam.getKey(), additionalParam.getValue()));
         }
@@ -1015,107 +1234,251 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         sb.append("\n");
         sb.append("# status display interval (intermittently show status during benchmark execution)\n");
         sb.append("# STRING\n");
-        sb.append("# COMMAND: ").append("-").append(MODE_ARG).append("/--").append(MODE_ARG_LONG).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(MODE_ARG)
+                .append("/--")
+                .append(MODE_ARG_LONG)
+                .append("\n");
         sb.append("# INT-32 (seconds)\n");
-        sb.append("# COMMAND: ").append("-").append(SHOW_STATUS_ARG).append("/--").append(SHOW_STATUS_ARG_LONG).append("\n");
-        sb.append(SHOW_STATUS_ARG_LONG).append("=").append(statusDisplayIntervalAsSeconds).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(SHOW_STATUS_ARG)
+                .append("/--")
+                .append(SHOW_STATUS_ARG_LONG)
+                .append("\n");
+        sb.append(SHOW_STATUS_ARG_LONG)
+                .append("=")
+                .append(statusDisplayIntervalAsSeconds)
+                .append("\n");
         sb.append("\n");
         sb.append("# thread pool size to use for executing operation handlers\n");
         sb.append("# INT-32\n");
-        sb.append("# COMMAND: ").append("-").append(THREADS_ARG).append("/--").append(THREADS_ARG_LONG).append("\n");
-        sb.append(THREADS_ARG_LONG).append("=").append(threadCount).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(THREADS_ARG)
+                .append("/--")
+                .append(THREADS_ARG_LONG)
+                .append("\n");
+        sb.append(THREADS_ARG_LONG)
+                .append("=")
+                .append(threadCount)
+                .append("\n");
         sb.append("\n");
         sb.append("# number of operations to execute during warmup phase of workload\n");
         sb.append("# INT-64\n");
-        sb.append("# COMMAND: ").append("-").append(WARMUP_COUNT_ARG).append("/--").append(WARMUP_COUNT_ARG_LONG).append("\n");
-        sb.append(WARMUP_COUNT_ARG_LONG).append("=").append(warmupCount).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(WARMUP_COUNT_ARG)
+                .append("/--")
+                .append(WARMUP_COUNT_ARG_LONG)
+                .append("\n");
+        sb.append(WARMUP_COUNT_ARG_LONG)
+                .append("=")
+                .append(warmupCount)
+                .append("\n");
         sb.append("\n");
         sb.append("# number of operations to skip before beginning workload execution\n");
         sb.append("# INT-64\n");
-        sb.append("# COMMAND: ").append("-").append(SKIP_COUNT_ARG).append("/--").append(SKIP_COUNT_ARG_LONG).append("\n");
-        sb.append(SKIP_COUNT_ARG_LONG).append("=").append(skipCount).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(SKIP_COUNT_ARG)
+                .append("/--")
+                .append(SKIP_COUNT_ARG_LONG)
+                .append("\n");
+        sb.append(SKIP_COUNT_ARG_LONG)
+                .append("=")
+                .append(skipCount)
+                .append("\n");
         sb.append("\n");
         sb.append("# name of the benchmark run\n");
         sb.append("# STRING\n");
-        sb.append("# COMMAND: ").append("-").append(NAME_ARG).append("/--").append(NAME_ARG_LONG).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(NAME_ARG)
+                .append("/--")
+                .append(NAME_ARG_LONG)
+                .append("\n");
         if (null == name) {
-            sb.append("# ").append(NAME_ARG_LONG).append("=").append("\n");
+            sb.append("# ")
+                    .append(NAME_ARG_LONG)
+                    .append("=")
+                    .append("\n");
         } else {
-            sb.append(NAME_ARG_LONG).append("=").append(name).append("\n");
+            sb.append(NAME_ARG_LONG)
+                    .append("=")
+                    .append(name)
+                    .append("\n");
         }
         sb.append("\n");
         sb.append("# path specifying where to write the benchmark results file\n");
         sb.append("# STRING\n");
-        sb.append("# COMMAND: ").append("-").append(RESULT_DIR_PATH_ARG).append("/--").append(RESULT_DIR_PATH_ARG_LONG).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(RESULT_DIR_PATH_ARG)
+                .append("/--")
+                .append(RESULT_DIR_PATH_ARG_LONG)
+                .append("\n");
         if (null == resultDirPath) {
-            sb.append("# ").append(RESULT_DIR_PATH_ARG_LONG).append("=").append("\n");
+            sb.append("# ")
+                    .append(RESULT_DIR_PATH_ARG_LONG)
+                    .append("=")
+                    .append("\n");
         } else {
-            sb.append(RESULT_DIR_PATH_ARG_LONG).append("=").append(resultDirPath).append("\n");
+            sb.append(RESULT_DIR_PATH_ARG_LONG)
+                    .append("=")
+                    .append(resultDirPath)
+                    .append("\n");
         }
         sb.append("\n");
         sb.append("# time unit to use for measuring performance metrics (e.g., query response time)\n");
-        sb.append("# ENUM (").append(Arrays.toString(VALID_TIME_UNITS)).append(")\n");
-        sb.append("# COMMAND: ").append("-").append(TIME_UNIT_ARG).append("/--").append(TIME_UNIT_ARG_LONG).append("\n");
-        sb.append(TIME_UNIT_ARG_LONG).append("=").append(timeUnit).append("\n");
+        sb.append("# ENUM (")
+                .append(Arrays.toString(VALID_TIME_UNITS))
+                .append(")\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(TIME_UNIT_ARG)
+                .append("/--")
+                .append(TIME_UNIT_ARG_LONG)
+                .append("\n");
+        sb.append(TIME_UNIT_ARG_LONG)
+                .append("=")
+                .append(timeUnit)
+                .append("\n");
         sb.append("\n");
-        sb.append("# used to 'compress'/'stretch' durations between operation start times to increase/decrease " + "benchmark load\n");
+        sb.append("# used to 'compress'/'stretch' durations between operation start times to increase/decrease "
+                + "benchmark load\n");
         sb.append("# e.g. 2.0 = run benchmark 2x slower, 0.1 = run benchmark 10x faster\n");
         sb.append("# DOUBLE\n");
-        sb.append("# COMMAND: ").append("-").append(TIME_COMPRESSION_RATIO_ARG).append("/--").append(TIME_COMPRESSION_RATIO_ARG_LONG).append("\n");
-        sb.append(TIME_COMPRESSION_RATIO_ARG_LONG).append("=").append(timeCompressionRatio).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(TIME_COMPRESSION_RATIO_ARG)
+                .append("/--")
+                .append(TIME_COMPRESSION_RATIO_ARG_LONG)
+                .append("\n");
+        sb.append(TIME_COMPRESSION_RATIO_ARG_LONG)
+                .append("=")
+                .append(timeCompressionRatio)
+                .append("\n");
         sb.append("\n");
         sb.append("# enable validation that will check if the provided database implementation is correct\n");
         sb.append("# parameter value specifies where to find the validation parameters file\n");
         sb.append("# STRING\n");
-        sb.append("# COMMAND: ").append("-").append(DB_VALIDATION_FILE_PATH_ARG).append("/--").append(DB_VALIDATION_FILE_PATH_ARG_LONG).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(DB_VALIDATION_FILE_PATH_ARG)
+                .append("/--")
+                .append(DB_VALIDATION_FILE_PATH_ARG_LONG)
+                .append("\n");
         if (null == databaseValidationFilePath) {
-            sb.append("# ").append(DB_VALIDATION_FILE_PATH_ARG_LONG).append("=").append("\n");
+            sb.append("# ")
+                    .append(DB_VALIDATION_FILE_PATH_ARG_LONG)
+                    .append("=")
+                    .append("\n");
         } else {
-            sb.append(DB_VALIDATION_FILE_PATH_ARG_LONG).append("=").append(databaseValidationFilePath).append("\n");
+            sb.append(DB_VALIDATION_FILE_PATH_ARG_LONG)
+                    .append("=")
+                    .append(databaseValidationFilePath)
+                    .append("\n");
         }
         sb.append("\n");
         sb.append("# generate validation parameters file for validating correctness of database implementations\n");
-        sb.append("# parameter values specify: (1) where to create the validation parameters file (2) how many " + "validation parameters to generate\n");
+        sb.append("# parameter values specify: (1) where to create the validation parameters file (2) how many "
+                + "validation parameters to generate\n");
         sb.append("# BOOLEAN\n");
-        sb.append("# COMMAND: ").append("-").append(VALIDATION_SERIALIZATION_CHECK_ARG).append("/--").append(VALIDATION_SERIALIZATION_CHECK_ARG_LONG).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(VALIDATION_SERIALIZATION_CHECK_ARG)
+                .append("/--")
+                .append(VALIDATION_SERIALIZATION_CHECK_ARG_LONG)
+                .append("\n");
         sb.append("# INT-32\n");
-        sb.append("# COMMAND: ").append("-").append(VALIDATION_PARAMS_SIZE_ARG).append("/--").append(VALIDATION_PARAMS_SIZE_ARG_LONG).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(VALIDATION_PARAMS_SIZE_ARG)
+                .append("/--")
+                .append(VALIDATION_PARAMS_SIZE_ARG_LONG)
+                .append("\n");
         sb.append("\n");
         sb.append("# sleep duration (ms) injected into busy wait loops (to reduce CPU consumption)\n");
         sb.append("# INT-64 (milliseconds)\n");
-        sb.append("# COMMAND: ").append("-").append(SPINNER_SLEEP_DURATION_ARG).append("/--").append(SPINNER_SLEEP_DURATION_ARG_LONG).append("\n");
-        sb.append(SPINNER_SLEEP_DURATION_ARG_LONG).append("=").append(spinnerSleepDurationAsMilli).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(SPINNER_SLEEP_DURATION_ARG)
+                .append("/--")
+                .append(SPINNER_SLEEP_DURATION_ARG_LONG)
+                .append("\n");
+        sb.append(SPINNER_SLEEP_DURATION_ARG_LONG)
+                .append("=")
+                .append(spinnerSleepDurationAsMilli)
+                .append("\n");
         sb.append("\n");
         sb.append("# print help string - usage instructions\n");
         sb.append("# BOOLEAN\n");
-        sb.append("# COMMAND: ").append("-").append(HELP_ARG).append("\n");
-        sb.append(HELP_ARG).append("=").append(printHelp).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(HELP_ARG)
+                .append("\n");
+        sb.append(HELP_ARG)
+                .append("=")
+                .append(printHelp)
+                .append("\n");
         sb.append("\n");
         sb.append("# executes operations as fast as possible, ignoring their scheduled start times\n");
         sb.append("# BOOLEAN\n");
-        sb.append("# COMMAND: ").append("-").append(IGNORE_SCHEDULED_START_TIMES_ARG).append("\n");
-        sb.append(IGNORE_SCHEDULED_START_TIMES_ARG).append("=").append(ignoreScheduledStartTimes).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(IGNORE_SCHEDULED_START_TIMES_ARG)
+                .append("\n");
+        sb.append(IGNORE_SCHEDULED_START_TIMES_ARG)
+                .append("=")
+                .append(ignoreScheduledStartTimes)
+                .append("\n");
         sb.append("\n");
         sb.append("# ***************************************************************\n");
         sb.append("# *** the following should be set by workload implementations ***\n");
         sb.append("# ***************************************************************\n");
         sb.append("\n");
         sb.append("# fully qualified class name of the Workload (class) implementation to execute\n");
-        sb.append("# STRING (e.g., ").append(LdbcFinBenchTransactionWorkload.class.getName()).append(")\n");
-        sb.append("# COMMAND: ").append("-").append(WORKLOAD_ARG).append("/--").append(WORKLOAD_ARG_LONG).append("\n");
+        sb.append("# STRING (e.g., ")
+                .append(LdbcFinBenchTransactionWorkload.class.getName())
+                .append(")\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(WORKLOAD_ARG)
+                .append("/--")
+                .append(WORKLOAD_ARG_LONG)
+                .append("\n");
         if (null == workloadClassName) {
-            sb.append("# ").append(WORKLOAD_ARG_LONG).append("=").append("\n");
+            sb.append("# ")
+                    .append(WORKLOAD_ARG_LONG)
+                    .append("=")
+                    .append("\n");
         } else {
-            sb.append(WORKLOAD_ARG_LONG).append("=").append(workloadClassName).append("\n");
+            sb.append(WORKLOAD_ARG_LONG)
+                    .append("=")
+                    .append(workloadClassName)
+                    .append("\n");
         }
         sb.append("\n");
         sb.append("# number of operations to generate during benchmark execution\n");
         sb.append("# INT-64\n");
-        sb.append("# COMMAND: ").append("-").append(OPERATION_COUNT_ARG).append("/--").append(OPERATION_COUNT_ARG_LONG).append("\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(OPERATION_COUNT_ARG)
+                .append("/--")
+                .append(OPERATION_COUNT_ARG_LONG)
+                .append("\n");
         if (0 == operationCount) {
-            sb.append("# ").append(OPERATION_COUNT_ARG_LONG).append("=").append("\n");
+            sb.append("# ")
+                    .append(OPERATION_COUNT_ARG_LONG)
+                    .append("=")
+                    .append("\n");
         } else {
-            sb.append(OPERATION_COUNT_ARG_LONG).append("=").append(operationCount).append("\n");
+            sb.append(OPERATION_COUNT_ARG_LONG)
+                    .append("=")
+                    .append(operationCount)
+                    .append("\n");
         }
         sb.append("\n");
         sb.append("# ************************************************************************************\n");
@@ -1123,23 +1486,41 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
         sb.append("# ************************************************************************************\n");
         sb.append("\n");
         sb.append("# fully qualified class name of the Db (class) implementation to execute\n");
-        sb.append("# STRING (e.g., ").append(DummyLdbcFinBenchTransactionDb.class.getName()).append(")\n");
-        sb.append("# COMMAND: ").append("-").append(DB_ARG).append("/--").append(DB_ARG_LONG).append("\n");
+        sb.append("# STRING (e.g., ")
+                .append(DummyLdbcFinBenchTransactionDb.class.getName())
+                .append(")\n");
+        sb.append("# COMMAND: ")
+                .append("-")
+                .append(DB_ARG)
+                .append("/--")
+                .append(DB_ARG_LONG)
+                .append("\n");
         if (null == dbClassName) {
-            sb.append("# ").append(DB_ARG_LONG).append("=").append("\n");
+            sb.append("# ")
+                    .append(DB_ARG_LONG)
+                    .append("=")
+                    .append("\n");
         } else {
-            sb.append(DB_ARG_LONG).append("=").append(dbClassName).append("\n");
+            sb.append(DB_ARG_LONG)
+                    .append("=")
+                    .append(dbClassName)
+                    .append("\n");
         }
         // Write additional, workload/database-related keys as well
-        Map<String, String> additionalConfigurationParameters = MapUtils.copyExcludingKeys(paramsMap, coreConfigurationParameterKeys());
+        Map<String, String> additionalConfigurationParameters =
+                MapUtils.copyExcludingKeys(paramsMap, coreConfigurationParameterKeys());
         if (!additionalConfigurationParameters.isEmpty()) {
             sb.append("\n");
             sb.append("# ************************************************************************************\n");
             sb.append("# *** non-core configuration parameters ***\n");
             sb.append("# ************************************************************************************\n");
             sb.append("\n");
-            for (Entry<String, String> configurationParameter : MapUtils.sortedEntrySet(additionalConfigurationParameters)) {
-                sb.append(configurationParameter.getKey()).append("=").append(configurationParameter.getValue()).append("\n");
+            for (Entry<String, String> configurationParameter : MapUtils.sortedEntrySet(
+                    additionalConfigurationParameters)) {
+                sb.append(configurationParameter.getKey())
+                        .append("=")
+                        .append(configurationParameter.getValue())
+                        .append("\n");
             }
         }
         return sb.toString();
@@ -1149,31 +1530,91 @@ public class ConsoleAndFileDriverConfiguration implements DriverConfiguration {
     public String toString() {
         int padRightDistance = 32;
         StringBuilder sb = new StringBuilder();
-        sb.append("Parameters:").append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Mode:")).append(mode).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Name:")).append(name).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "DB:")).append(dbClassName).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Workload:")).append(workloadClassName).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Operation Count:")).append(INTEGRAL_FORMAT.format(operationCount)).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Warmup Count:")).append(INTEGRAL_FORMAT.format(warmupCount)).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Skip Count:")).append(INTEGRAL_FORMAT.format(skipCount)).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Worker Threads:")).append(threadCount).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Status Display Interval:")).append(TEMPORAL_UTIL.milliDurationToString(TimeUnit.SECONDS.toMillis(statusDisplayIntervalAsSeconds))).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Time Unit:")).append(timeUnit).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Results Directory:")).append(resultDirPath()).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Time Compression Ratio:")).append(FLOAT_FORMAT.format(timeCompressionRatio)).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Validation Parameter Size:")).append(validationParametersSize).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Validation Serialization Check:")).append(validationSerializationCheck).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Validation Database File:")).append(databaseValidationFilePath).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Spinner Sleep Duration:")).append(TEMPORAL_UTIL.milliDurationToString(spinnerSleepDurationAsMilli)).append(" / ").append(spinnerSleepDurationAsMilli).append(" (ms)\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Print Help:")).append(printHelp).append("\n");
-        sb.append("\t").append(format("%1$-" + padRightDistance + "s", "Ignore Scheduled Start Times:")).append(ignoreScheduledStartTimes).append("\n");
+        sb.append("Parameters:")
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Mode:"))
+                .append(mode)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Name:"))
+                .append(name)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "DB:"))
+                .append(dbClassName)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Workload:"))
+                .append(workloadClassName)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Operation Count:"))
+                .append(INTEGRAL_FORMAT.format(operationCount))
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Warmup Count:"))
+                .append(INTEGRAL_FORMAT.format(warmupCount))
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Skip Count:"))
+                .append(INTEGRAL_FORMAT.format(skipCount))
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Worker Threads:"))
+                .append(threadCount)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Status Display Interval:"))
+                .append(TEMPORAL_UTIL.milliDurationToString(TimeUnit.SECONDS.toMillis(statusDisplayIntervalAsSeconds)))
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Time Unit:"))
+                .append(timeUnit)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Results Directory:"))
+                .append(resultDirPath())
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Time Compression Ratio:"))
+                .append(FLOAT_FORMAT.format(timeCompressionRatio))
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Validation Parameter Size:"))
+                .append(validationParametersSize)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Validation Serialization Check:"))
+                .append(validationSerializationCheck)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Validation Database File:"))
+                .append(databaseValidationFilePath)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Spinner Sleep Duration:"))
+                .append(TEMPORAL_UTIL.milliDurationToString(spinnerSleepDurationAsMilli))
+                .append(" / ")
+                .append(spinnerSleepDurationAsMilli)
+                .append(" (ms)\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Print Help:"))
+                .append(printHelp)
+                .append("\n");
+        sb.append("\t")
+                .append(format("%1$-" + padRightDistance + "s", "Ignore Scheduled Start Times:"))
+                .append(ignoreScheduledStartTimes)
+                .append("\n");
 
         Set<String> excludedKeys = coreConfigurationParameterKeys();
 
-        Map<String, String> filteredParamsMap = MapUtils.copyExcludingKeys(convertComplexKeysToSimpleKeys(paramsMap), excludedKeys);
+        Map<String, String> filteredParamsMap =
+                MapUtils.copyExcludingKeys(convertComplexKeysToSimpleKeys(paramsMap), excludedKeys);
         if (!filteredParamsMap.isEmpty()) {
-            sb.append("\t").append("User-defined parameters:").append("\n");
+            sb.append("\t")
+                    .append("User-defined parameters:")
+                    .append("\n");
             sb.append(MapUtils.prettyPrint(filteredParamsMap, "\t\t"));
         }
 

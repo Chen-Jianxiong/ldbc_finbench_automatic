@@ -1,15 +1,18 @@
 package org.ldbcouncil.finbench.driver.runtime.metrics;
 
-import com.lmax.disruptor.*;
+import static java.lang.String.format;
+import static org.ldbcouncil.finbench.driver.runtime.metrics.DisruptorSbeMetricsEvent.GET_WORKLOAD_RESULTS;
+import static org.ldbcouncil.finbench.driver.runtime.metrics.DisruptorSbeMetricsEvent.GET_WORKLOAD_STATUS;
+import static org.ldbcouncil.finbench.driver.runtime.metrics.DisruptorSbeMetricsEvent.MESSAGE_HEADER_SIZE;
+import static org.ldbcouncil.finbench.driver.runtime.metrics.DisruptorSbeMetricsEvent.SUBMIT_OPERATION_RESULT;
+
+import com.lmax.disruptor.BlockingWaitStrategy;
+import com.lmax.disruptor.EventTranslator;
+import com.lmax.disruptor.EventTranslatorVararg;
+import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.TimeoutException;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
-import org.agrona.concurrent.UnsafeBuffer;
-import org.ldbcouncil.finbench.driver.Operation;
-import org.ldbcouncil.finbench.driver.log.LoggingServiceFactory;
-import org.ldbcouncil.finbench.driver.runtime.ConcurrentErrorReporter;
-import org.ldbcouncil.finbench.driver.runtime.metrics.sbe.MetricsEvent;
-import org.ldbcouncil.finbench.driver.temporal.TimeSource;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -20,9 +23,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicStampedReference;
 import java.util.concurrent.locks.LockSupport;
-
-import static java.lang.String.format;
-import static org.ldbcouncil.finbench.driver.runtime.metrics.DisruptorSbeMetricsEvent.*;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.ldbcouncil.finbench.driver.Operation;
+import org.ldbcouncil.finbench.driver.log.LoggingServiceFactory;
+import org.ldbcouncil.finbench.driver.runtime.ConcurrentErrorReporter;
+import org.ldbcouncil.finbench.driver.runtime.metrics.sbe.MetricsEvent;
+import org.ldbcouncil.finbench.driver.temporal.TimeSource;
 
 public class DisruptorSbeMetricsService implements MetricsService {
     private static final long SHUTDOWN_WAIT_TIMEOUT_AS_MILLI = TimeUnit.SECONDS.toMillis(5);
@@ -31,7 +37,7 @@ public class DisruptorSbeMetricsService implements MetricsService {
     public static final long DEFAULT_HIGHEST_EXPECTED_RUNTIME_DURATION_AS_NANO = TimeUnit.MINUTES.toNanos(90);
 
     private final AtomicLong initiatedEvents = new AtomicLong(0);
-    public final AtomicBoolean shutdown = new AtomicBoolean(false);
+    private final AtomicBoolean shutdown = new AtomicBoolean(false);
     private final TimeSource timeSource;
     private final RingBuffer<UnsafeBuffer> ringBuffer;
     private final Disruptor<UnsafeBuffer> disruptor;

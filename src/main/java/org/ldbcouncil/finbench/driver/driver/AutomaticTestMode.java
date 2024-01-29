@@ -1,7 +1,16 @@
 package org.ldbcouncil.finbench.driver.driver;
 
+import static java.lang.String.format;
 
 import com.google.common.base.Charsets;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 import org.ldbcouncil.finbench.driver.Db;
 import org.ldbcouncil.finbench.driver.DbException;
 import org.ldbcouncil.finbench.driver.Workload;
@@ -37,18 +46,8 @@ import org.ldbcouncil.finbench.driver.validation.ResultsLogValidationSummary;
 import org.ldbcouncil.finbench.driver.validation.ResultsLogValidationTolerances;
 import org.ldbcouncil.finbench.driver.validation.ResultsLogValidator;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.util.concurrent.TimeUnit;
-
-import static java.lang.String.format;
-
 /**
- * 描述：自动测试模式，采用二分方法来测试出适合当前机器的配置参数。
- * 备注：
+ * Automatic test mode, using dichotomous method to test the configuration parameters suitable for the current machine
  */
 public class AutomaticTestMode implements DriverMode<Object> {
     private final ControlService controlService;
@@ -71,16 +70,13 @@ public class AutomaticTestMode implements DriverMode<Object> {
             long randomSeed) throws DriverException {
         this.controlService = controlService;
         this.timeSource = timeSource;
-        this.loggingService = controlService.loggingServiceFactory().loggingServiceFor(getClass().getSimpleName());
+        this.loggingService = controlService.loggingServiceFactory()
+                .loggingServiceFor(getClass().getSimpleName());
         this.randomSeed = randomSeed;
         this.temporalUtil = new TemporalUtil();
         this.resultsDirectory = new ResultsDirectory(controlService.configuration());
     }
 
-    /*
-    TODO clientMode.init()
-    TODO clientMode
-     */
     public WorkloadStatusSnapshot status() throws MetricsCollectionException {
         throw new UnsupportedOperationException("Not yet implemented");
     }
@@ -93,136 +89,156 @@ public class AutomaticTestMode implements DriverMode<Object> {
 
     @Override
     public Object startExecutionAndAwaitCompletion() throws DriverException {
-        double l = controlService.configuration().tcrLeft();
-        double r = controlService.configuration().tcrRight();
-        // 记录当前以及最后成功的一次的结果
+        double l = controlService.configuration().tcrMin();
+        double r = controlService.configuration().tcrMax();
+        // Record the results of the current and last successful one
         ResultsLogValidationResult successfulResult = new ResultsLogValidationResult();
         ResultsLogValidationResult currentResult;
 
-        loggingService.info("-----------------------------------快速预估阶段-------------------------------------------");
-        // 假设tcr=1时，一分钟大概需要的基础操作数量（初始先设大一点，后面根据机器情况来变化）
+        loggingService.info("--------------------------Rapid estimate phase--------------------------");
+        // Assuming that tcr=1, the approximate number of basic operations required in a minute
+        // (initially set to be larger, and later change according to the machine situation)
         long baseCnt = 10000;
-        // 存储原始的总操作数量
+        // Stores the original total number of operations
         long sourceCnt = controlService.configuration().operationCount();
-        // 获取二分结束条件，容差范围
+        // Gets the binary end condition, tolerance range
         double range = controlService.configuration().dichotomyErrorRange();
-        // 本轮 时间压缩比
+        // Time compression ratio of this round
         double tcr = 0;
-        while (r - l >= range) {
-            // 第一次先尝试使用配置指定的tcr运行
-            if (tcr != 0) {
-                tcr = l + (r - l) / 2;
-                controlService.configuration().setTimeCompressionRatio(tcr);
-            } else {
-                tcr = controlService.configuration().timeCompressionRatio();
-            }
-            // 设置预热操作数量
-            computeWarmupCount(baseCnt, sourceCnt);
-            loggingService.info(String.format("新的一轮：时间压缩比：%f warmup count: %d",
-                    tcr, controlService.configuration().warmupCount()));
-            currentResult = validationTest(true, controlService.configuration().estimateTestTime());
+        int numberOfRounds = 1;
+//        while (r - l >= range) {
+//            // The first time you try to run with the tcr specified by the configuration
+//            if (tcr != 0) {
+//                tcr = l + (r - l) / 2;
+//                controlService.configuration().setTimeCompressionRatio(tcr);
+//            } else {
+//                tcr = controlService.configuration().timeCompressionRatio();
+//            }
+//            // Sets the number of preheat operations
+//            computeWarmupCount(baseCnt, sourceCnt);
+//            loggingService.info(String.format("New round %d: Compression ratio: %f,\t warmup count: %d",
+//                    numberOfRounds++, tcr, controlService.configuration().warmupCount()
+//            ));
+//            currentResult = validationTest(true);
+//
+//            if (currentResult.isSuccessful()) {
+//                r = tcr;
+//                successfulResult = currentResult;
+//            } else {
+//                l = tcr;
+//            }
+//            // Based on the current throughput, determine the base operand per minute at tcr=1,
+//            // then *1/3 to avoid accidents
+//            baseCnt = (long) (Math.ceil(currentResult.throughput()) * tcr * 80);
+//        }
 
-            if (currentResult.isSuccessful()) {
-                r = tcr;
-                successfulResult = currentResult;
-            } else {
-                l = tcr;
-            }
-            // 根据当前吞吐量来判断tcr=1时每分钟的基础操作数，再*1.5避免意外
-            baseCnt = (long) (Math.ceil(currentResult.throughput()) * tcr * 90);
-        }
-
-        loggingService.info("-----------------------------------精确调参阶段-------------------------------------------");
-        // 理论情况是精准tcr >= 预估tcr，防止意外再给一点可能更小的空间
-        l = controlService.configuration().tcrLeft() + (l - controlService.configuration().tcrLeft()) * 0.7;
-        r = Math.min(l * 10, controlService.configuration().tcrRight());
-        // 保证至少执行一次精确调参阶段
+        loggingService.info("--------------------------Accurate adjust parameter phase--------------------------");
+        // The theory is accurate tcr >= estimated tcr,
+        // to prevent accidents and give a little bit of room that may be smaller
+        l = controlService.configuration().tcrMin() + (l - controlService.configuration().tcrMin()) * 0.7;
+        r = Math.min(l * 10, controlService.configuration().tcrMax());
+        // Ensure that at least one precision tuning phase is performed
         tcr = 0;
+        numberOfRounds = 0;
         do {
-            // 第一次先尝试使用预估阶段的结果运行
+            // The first attempt is to run with the results of the estimation phase
             if (tcr != 0) {
                 tcr = l + (r - l) / 2;
                 controlService.configuration().setTimeCompressionRatio(tcr);
             } else {
                 tcr = controlService.configuration().timeCompressionRatio();
             }
-            // 设置预热以及正式阶段的操作数量
+            // Set the number of operations for the warm-up and formal phases
             computeWarmupCount(baseCnt, sourceCnt);
             computeRunOperationCount(baseCnt, sourceCnt);
-            loggingService.info(String.format("新的一轮：时间压缩比：%f\t, warmup count: %d\t, operation count: %d",
-                    tcr, controlService.configuration().warmupCount(), controlService.configuration().operationCount()));
+            loggingService.info(String.format(
+                    "New round %d: Compression ratio: %f,\t warmup count: %d,\t operation count: %d",
+                    numberOfRounds, tcr, controlService.configuration().warmupCount(),
+                    controlService.configuration().operationCount()
+            ));
 
-            currentResult = validationTest(false, controlService.configuration().accurateTestTime());
+            currentResult = validationTest(false);
             if (currentResult.isSuccessful()) {
                 r = tcr;
                 successfulResult = currentResult;
             } else {
                 l = tcr;
             }
-            // 根据当前吞吐量来判断tcr=1时每分钟的基础操作数，再*1.5避免意外
-            baseCnt = (long) (Math.ceil(currentResult.throughput()) * tcr * 90);
+            baseCnt = (long) (Math.ceil(currentResult.throughput()) * tcr * 80);
         } while (r - l >= range);
 
-        // 如果找到最后的l没有成功，则更换成最后成功的那一次
+        // If finding the last l is not successful, replace it with the last successful one
         if (!currentResult.isSuccessful()) {
             controlService.configuration().setTimeCompressionRatio(r);
-            // 此时机器状态已经下滑，就不必再重复测试一次了
+            // At this point, the state of the machine has slipped, and there is no need to repeat the test
         }
+        try {
+            loggingService.info("Shutting down database connector...");
+            Instant dbShutdownStart = Instant.now();
+            database.close();
+            Duration shutdownDuration = Duration.between(dbShutdownStart, Instant.now());
+            loggingService.info("Database connector shutdown successfully in: " + shutdownDuration);
+        } catch (IOException e) {
+            throw new DriverException("Error shutting down database", e);
+        }
+        loggingService.info("Workload completed successfully");
         return successfulResult;
     }
 
     /**
-     * 设置预热操作数量
+     * Sets the number of preheat operations
      *
-     * @param baseCnt tcr=1，estimateTestTime=300000 时的基础操作数量
-     * @param sourceCnt 配置中指定的操作数
+     * @param baseCnt   When tcr=1，estimateTestTime=300000 the number of base operations
+     * @param sourceCnt The operand specified in the configuration
      */
-    public void computeWarmupCount(long baseCnt, long sourceCnt) {
+    public void computeWarmupCount(long baseCnt,
+                                   long sourceCnt) {
         if (controlService.configuration().estimateTestTime() != -1) {
             controlService.configuration().setWarmupCount((long) Math.max(
-                    baseCnt / controlService.configuration().timeCompressionRatio() *
-                            Math.ceil(controlService.configuration().estimateTestTime() / 60000.0), sourceCnt
+                    baseCnt / controlService.configuration().timeCompressionRatio()
+                            * (controlService.configuration().estimateTestTime() / 60000.0), sourceCnt
             ));
         }
     }
 
     /**
-     * 设置正式运行阶段数量
+     * Set the number of official running phases
      *
-     * @param baseCnt tcr=1，estimateTestTime=300000 时的基础操作数量
-     * @param sourceCnt 配置中指定的操作数
+     * @param baseCnt   When tcr=1，estimateTestTime=300000 the number of base operations
+     * @param sourceCnt The operand specified in the configuration
      */
-    public void computeRunOperationCount(long baseCnt, long sourceCnt) {
+    public void computeRunOperationCount(long baseCnt,
+                                         long sourceCnt) {
         if (controlService.configuration().accurateTestTime() != -1) {
             controlService.configuration().setOperationCount((long) Math.max(
-                    baseCnt / controlService.configuration().timeCompressionRatio() *
-                            Math.ceil(controlService.configuration().accurateTestTime() / 60000.0), sourceCnt
+                    baseCnt / controlService.configuration().timeCompressionRatio()
+                            * (controlService.configuration().accurateTestTime() / 60000.0), sourceCnt
             ));
         }
     }
 
     /**
-     * 执行一次配置参数测试
+     * Perform a configuration parameter test
      *
-     * @return ResultsLogValidationResult 测试结果
+     * @return ResultsLogValidationResult test result
      */
-    private ResultsLogValidationResult validationTest(boolean warmup, long milli) throws DriverException {
-        ResultsLogValidationResult result = executionAndAwaitCompletion(warmup, milli);
+    private ResultsLogValidationResult validationTest(boolean warmup) throws DriverException {
+        ResultsLogValidationResult result = executionAndAwaitCompletion(warmup);
         if (result == null) {
-            loggingService.info("获取结果测试结果失败");
+            loggingService.info("Obtain result The test result failed");
             return new ResultsLogValidationResult();
         }
-        loggingService.info(String.format("\n" +
-                        "----------------------------此次测试校验%s----------------------------\n" +
-                        "----------------------------tcr: %f----------------------------\n" +
-                        "----------------------------throughput: %f----------------------------\n" +
-                        "----------------------------onTimeRatio: %f----------------------------",
-                result.isSuccessful() ? "通过" : "失败",
+        loggingService.info(String.format("\n"
+                        + "----------------------------This test check %s----------------------------\n"
+                        + "----------------------------tcr: %f----------------------------\n"
+                        + "----------------------------throughput: %f----------------------------\n"
+                        + "----------------------------onTimeRatio: %f----------------------------",
+                result.isSuccessful() ? "PASS" : "FAILURE",
                 controlService.configuration().timeCompressionRatio(), result.throughput(), result.onTimeRatio()));
         return result;
     }
 
-    public ResultsLogValidationResult executionAndAwaitCompletion(boolean warmup, long milli)
+    public ResultsLogValidationResult executionAndAwaitCompletion(boolean warmup)
             throws DriverException {
         ResultsLogValidationResult result = null;
         if (controlService.configuration().warmupCount() > 0) {
@@ -231,15 +247,16 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     + " --- Warmup Phase ---\n"
                     + " --------------------");
             doInit(true);
-            result = doExecute(true, milli);
+            result = doExecute(true, controlService.configuration().estimateTestTime());
             try {
                 // TODO remove in future
                 // This is necessary to clear the runnable context pool
                 // As objects in the pool would otherwise hold references to services used during warmup
                 loggingService.info("reInit database...");
-                database.reInitTest();
+                database.reInitAutomatic();
             } catch (DbException e) {
-                throw new DriverException(format("Error reinitializing DB: %s", database.getClass().getName()), e);
+                throw new DriverException(format("Error reinitializing DB: %s", database.getClass()
+                        .getName()), e);
             }
         } else {
             loggingService.info("\n"
@@ -247,34 +264,24 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     + " --- No Warmup Phase Requested ---\n"
                     + " ---------------------------------");
         }
-        // 如果预热阶段就超时了，则直接返回
-        if (!warmup && result != null && result.isSuccessful()) {
+
+        if (!warmup) {
             loggingService.info("\n"
                     + " -----------------\n"
                     + " --- Run Phase ---\n"
                     + " -----------------");
             doInit(false);
-            result = doExecute(false, -1);
+            result = doExecute(false, controlService.configuration().accurateTestTime());
             try {
                 // TODO remove in future
                 // This is necessary to clear the runnable context pool
                 // As objects in the pool would otherwise hold references to services used during warmup
                 loggingService.info("reInit database...");
-                database.reInitTest();
+                database.reInitAutomatic();
             } catch (DbException e) {
-                throw new DriverException(format("Error reinitializing DB: %s", database.getClass().getName()), e);
+                throw new DriverException(format("Error reinitializing DB: %s", database.getClass()
+                        .getName()), e);
             }
-
-//            try {
-//                loggingService.info("Shutting down database connector...");
-//                Instant dbShutdownStart = Instant.now();
-//                database.close();
-//                Duration shutdownDuration = Duration.between(dbShutdownStart, Instant.now());
-//                loggingService.info("Database connector shutdown successfully in: " + shutdownDuration);
-//            } catch (IOException e) {
-//                throw new DriverException("Error shutting down database", e);
-//            }
-//            loggingService.info("Workload completed successfully");
         }
         return result;
     }
@@ -288,13 +295,12 @@ public class AutomaticTestMode implements DriverMode<Object> {
         //  ================================
         File resultsLog = resultsDirectory.getOrCreateResultsLogFile(warmup);
         try {
-            // 如果 resultLog 不为空，则创建文件、写入HEADER列标题
             resultsLogWriter = (null == resultsLog)
                     ? new NullResultsLogWriter()
                     : new SimpleResultsLogWriter(
-                    resultsLog,
-                    controlService.configuration().timeUnit(),
-                    controlService.configuration().flushLog());
+                            resultsLog,
+                            controlService.configuration().timeUnit(),
+                            controlService.configuration().flushLog());
         } catch (IOException e) {
             throw new DriverException(
                     format("Error creating results log writer for: %s", resultsLog.getAbsolutePath()), e);
@@ -305,17 +311,13 @@ public class AutomaticTestMode implements DriverMode<Object> {
         //  ------------------
         loggingService.info("Scanning workload streams to calculate their limits...");
 
-        // 指定需要跳过的操作数，可通过skip配置指定
-        // 正式运行阶段会跳过预热执行的操作数
         long offset = (warmup)
                 ? controlService.configuration().skipCount()
                 : controlService.configuration().skipCount() + controlService.configuration().warmupCount();
-        // 本次执行操作的界限。（并不是总数，而是执行到第limit个操作数停止）
         long limit = (warmup)
                 ? controlService.configuration().warmupCount()
                 : controlService.configuration().operationCount();
 
-        // 初始化workload，并获取异步操作流（Writes、ComplexRead、SimpleRead）
         WorkloadStreams workloadStreams;
         long minimumTimeStamp;
         try {
@@ -375,7 +377,6 @@ public class AutomaticTestMode implements DriverMode<Object> {
         //  ------------------------
         try {
             // TODO create metrics service factory so different ones can be easily created
-            // Disruptor是用于JVM中多个线程之间的高效内存消息队列
             metricsService = new DisruptorSbeMetricsService(
                     timeSource,
                     errorReporter,
@@ -445,8 +446,8 @@ public class AutomaticTestMode implements DriverMode<Object> {
                 completionTimeWriter.submitCompletedTime(maxPossibleTimeAsMilli);
             } else {
                 // There are some completion time writers, initialize them to lowest time stamp in workload
-                completionTimeServiceAssistant
-                        .writeInitiatedAndCompletedTimesToAllWriters(completionTimeService, minimumTimeStamp - 1);
+                completionTimeServiceAssistant.writeInitiatedAndCompletedTimesToAllWriters(
+                        completionTimeService, minimumTimeStamp - 1);
                 completionTimeServiceAssistant
                         .writeInitiatedAndCompletedTimesToAllWriters(completionTimeService, minimumTimeStamp);
                 boolean completionTimeAdvancedToDesiredTime =
@@ -478,15 +479,14 @@ public class AutomaticTestMode implements DriverMode<Object> {
         }
     }
 
-    private ResultsLogValidationResult doExecute(boolean warmup, long milli) throws DriverException {
-        // 关闭 workload、完成时间服务、指标服务
+    private ResultsLogValidationResult doExecute(boolean warmup,
+                                                 long milli) throws DriverException {
         try {
             ConcurrentErrorReporter errorReporter = null;
             if (milli == -1) {
-                // 正常执行，走EXECUTE_BENCHMARK的流程
+                // To execute normally, follow the EXECUTE_BENCHMARK process
                 errorReporter = workloadRunner.getFuture().get();
             } else {
-                // 启动workloadRunner线程，主线程睡眠milli的时间
                 errorReporter = workloadRunner.getFuture(milli);
             }
             loggingService.info("Shutting down workload...");
@@ -515,13 +515,11 @@ public class AutomaticTestMode implements DriverMode<Object> {
         }
 
         try {
-            // 将度量指标结果输出到日志
             if (warmup) {
                 loggingService.summaryResult(workloadResults);
             } else {
                 loggingService.detailedResult(workloadResults);
             }
-            // 输出指标服务结果到 XX-results.json文件
             if (resultsDirectory.exists()) {
                 File resultsSummaryFile = resultsDirectory.getOrCreateResultsSummaryFile(warmup);
                 loggingService.info(
@@ -532,7 +530,6 @@ public class AutomaticTestMode implements DriverMode<Object> {
                         new FileOutputStream(resultsSummaryFile),
                         Charsets.UTF_8
                 );
-                // 输出配置信息到 XX-configuration.properties文件
                 File configurationFile = resultsDirectory.getOrCreateConfigurationFile(warmup);
                 Files.write(
                         configurationFile.toPath(),
@@ -543,27 +540,24 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     loggingService.info("Validating workload results...");
                     // TODO make this feature accessible directly
                     ResultsLogValidator resultsLogValidator = new ResultsLogValidator();
-                    // 计算可容忍延迟操作的总数
                     ResultsLogValidationTolerances resultsLogValidationTolerances =
-                            workload.resultsLogValidationTolerancesAutomatic(workloadResults.totalOperationCount());
+                            workload.resultsLogValidationTolerancesAutomatic(controlService.configuration(),
+                                    workloadResults.totalOperationCount());
 
-                    // 统计延迟操作数，生成一个直方图简易快照，返回每种操作类型的最小、最大、平均延迟
                     ResultsLogValidationSummary resultsLogValidationSummary = resultsLogValidator.compute(
                             resultsDirectory.getOrCreateResultsLogFile(warmup),
                             resultsLogValidationTolerances.excessiveDelayThresholdAsMilli()
                     );
-                    // 输出统计延迟操作数结果到XX-validation.json文件
                     File resultsValidationFile = resultsDirectory.getOrCreateResultsValidationFile(warmup);
                     loggingService.info(
                             format("Exporting workload results validation to: %s",
                                     resultsValidationFile.getAbsolutePath())
                     );
-                    Files.write(
-                            resultsValidationFile.toPath(),
-                            resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
-                    );
+                    // Files.write(
+                    //        resultsValidationFile.toPath(),
+                    //        resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
+                    // );
                     // TODO export result
-                    // 验证基准测试的结果
                     ResultsLogValidationResult validationResult = resultsLogValidator.validateAutomatic(
                             resultsLogValidationSummary,
                             resultsLogValidationTolerances,
@@ -572,10 +566,10 @@ public class AutomaticTestMode implements DriverMode<Object> {
                     loggingService.info(validationResult.getScheduleAuditResult(
                             controlService.configuration().recordDelayedOperations()
                     ));
-//                    Files.write(
-//                        resultsValidationFile.toPath(),
-//                        resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
-//                    );
+                    Files.write(
+                            resultsValidationFile.toPath(),
+                            resultsLogValidationSummary.toJson().getBytes(StandardCharsets.UTF_8)
+                    );
                     return validationResult;
                 }
             }

@@ -24,11 +24,14 @@
 - ResultsLogValidator 第49、51行左右，添加map.get()为空的判断
 - PoolingOperationHandlerRunnerFactory 第 123 行左右，添加了 shutdownTest() 方法，关闭 innerOperationHandlerRunnerFactory 和 operationHandlerRunnerPool，并且不用等待
 - Db 第 75 行左右，添加了 reInitTest() 方法
+- Workload 第47行，增加resultsLogValidationTolerancesAutomatic()方法
+- ResultsLogValidationResult 第 14行，增加及时率、吞吐量、操作数属性，以及读写的方法
+- ResultsLogValidator 第67行，增加validateAutomatic()方法
 
 ### 新增配置参数
 
-- **estimate**：快速预估阶段每次测试的时长，(默认是: 300000)，如果是-1，则完成 operation_count 数量的操作就结束
-- **accurate**：精准调参阶段每次测试的时长，(默认是: 7200000)，如果是-1，则完成 operation_count 数量的操作就结束
+- **estimate**：快速预估阶段每次测试的时长（毫秒），(默认是: 300000)，如果是-1，则完成 operation_count 数量的操作就结束
+- **accurate**：精准调参阶段每次测试的时长（毫秒），(默认是: 7200000)，如果是-1，则完成 operation_count 数量的操作就结束
 - **error_range**：二分结束条件，容差范围，(默认是: 1E-5)
 - **tcr_min**：时间压缩比的最小值限制，(默认是:1E-9)
 - **tcr_max**：时间压缩比的最大值限制，(默认是: 1)

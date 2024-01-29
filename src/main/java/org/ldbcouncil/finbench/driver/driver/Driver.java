@@ -1,5 +1,9 @@
 package org.ldbcouncil.finbench.driver.driver;
 
+import static java.lang.String.format;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.ldbcouncil.finbench.driver.control.ConsoleAndFileDriverConfiguration;
 import org.ldbcouncil.finbench.driver.control.ControlService;
 import org.ldbcouncil.finbench.driver.control.DriverConfigurationException;
@@ -11,11 +15,6 @@ import org.ldbcouncil.finbench.driver.log.LoggingServiceFactory;
 import org.ldbcouncil.finbench.driver.runtime.ConcurrentErrorReporter;
 import org.ldbcouncil.finbench.driver.temporal.SystemTimeSource;
 import org.ldbcouncil.finbench.driver.temporal.TimeSource;
-
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import static java.lang.String.format;
 
 
 public class Driver {
@@ -29,7 +28,6 @@ public class Driver {
         LoggingService loggingService = loggingServiceFactory.loggingServiceFor(Driver.class.getSimpleName());
         loggingService.info("Driver Simple Name：" + Driver.class.getSimpleName());
 
-        // 读取配置，生成驱动配置类对象
         try {
             TimeSource systemTimeSource = new SystemTimeSource();
             ConsoleAndFileDriverConfiguration configuration = ConsoleAndFileDriverConfiguration.fromArgs(args);
@@ -40,7 +38,6 @@ public class Driver {
                     loggingServiceFactory,
                     systemTimeSource);
             Driver driver = new Driver();
-            // 根据控制服务里的配置参数生成对应的驱动模式
             DriverMode<?> driverMode = driver.getDriverModeFor(controlService);
             driverMode.init();
             driverMode.startExecutionAndAwaitCompletion();
@@ -55,7 +52,7 @@ public class Driver {
             if (null != controlService) {
                 controlService.shutdown();
             }
-            System.exit(1);
+            System.exit(0);
         }
     }
 
@@ -67,7 +64,6 @@ public class Driver {
      * @throws DriverException When one or more required parameters are missing
      */
     public DriverMode<?> getDriverModeFor(ControlService controlService) throws DriverException {
-        // 若配置中 HELP_ARG = true，则会返回此模式
         if (controlService.configuration().shouldPrintHelpString()) {
             return new PrintHelpMode(controlService);
         }
